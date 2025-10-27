@@ -1,5 +1,7 @@
 // src/services/topicService.ts
 
+import { getToken } from "./authService";
+
 export interface Topic {
   id?: string;
   name: string;
@@ -18,6 +20,22 @@ export interface TopicAPIResponse {
 const BASE_URL = "http://localhost:5000/api/v1/topic";
 
 /**
+ * Helper để lấy headers kèm token
+ */
+const getAuthHeaders = (isFormData = false) => {
+  const token = getToken();
+  const headers: HeadersInit = {};
+
+  if (!isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
+};
+/**
  * Lấy danh sách topic (phân trang)
  * Endpoint: GET /api/v1/topic/get-topics?page=1&limit=10&searchName=...
  */
@@ -34,21 +52,37 @@ export const getTopics = async (
   if (topicId) params.append('topicId', topicId);
   if (searchName) params.append('searchName', searchName);
 
-  const res = await fetch(`${BASE_URL}/get-topics?${params.toString()}`);
+  const res = await fetch(`${BASE_URL}/get-topics?${params.toString()}`, {
+    headers: getAuthHeaders(),
+  });
   if (!res.ok) {
     const errorText = await res.text();
     throw new Error(`Failed to fetch topics: ${errorText}`);
   }
 
   const json = await res.json();
-  return json.data as TopicAPIResponse;
+  if (!json.data || !json.data.topics) {
+    // Handle cases where data or topics array might be missing
+    return { topics: [], totalPages: 0, total: 0, page: page, limit: limit };
+  }
+
+  // Map _id from backend to id on frontend for each topic
+  const mappedTopics = json.data.topics.map((topic: any) => {
+    const { _id, ...rest } = topic;
+    return { ...rest, id: _id };
+  });
+
+  // Return the full response with mapped subjects
+  return { ...json.data, topics: mappedTopics };
 };
 
 /**
  * Lấy chi tiết topic theo ID
  */
 export const getTopicById = async (id: string): Promise<Topic> => {
-  const res = await fetch(`${BASE_URL}/get-topicById/${id}`);
+  const res = await fetch(`${BASE_URL}/get-topicById/${id}`, {
+    headers: getAuthHeaders(),
+  });
   
   if (!res.ok) {
     const errorText = await res.text();
@@ -83,7 +117,7 @@ export const addTopic = async (topic: {
 }): Promise<Topic> => {
   const res = await fetch(`${BASE_URL}/create-topic`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getAuthHeaders(),
     body: JSON.stringify(topic),
   });
 
@@ -114,7 +148,7 @@ export const updateTopic = async (
 ): Promise<Topic> => {
   const res = await fetch(`${BASE_URL}/update-topic/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: getAuthHeaders(),
     body: JSON.stringify(topic),
   });
 
@@ -124,7 +158,14 @@ export const updateTopic = async (
   }
 
   const data = await res.json();
-  return data.data;
+  const updatedTopic = data.data;
+  // Chuẩn hóa dữ liệu trả về để khớp với interface Topic của frontend
+  return {
+    id: updatedTopic._id,
+    name: updatedTopic.name,
+    description: updatedTopic.description,
+    subject: updatedTopic.subject ?? null,
+  };
 };
 
 /**
@@ -134,6 +175,7 @@ export const updateTopic = async (
 export const deleteTopic = async (id: string): Promise<{ message: string }> => {
   const res = await fetch(`${BASE_URL}/delete-topic/${id}`, {
     method: "DELETE",
+    headers: getAuthHeaders(),
   });
 
   if (!res.ok) {

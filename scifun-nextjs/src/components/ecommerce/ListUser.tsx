@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { getSubjects, Subject } from "@/services/subjectService";
 import {
   Table,
   TableBody,
@@ -10,10 +9,11 @@ import {
 } from "../ui/table";
 import Badge from "../ui/badge/Badge";
 import Image from "next/image";
-import Link from "next/link";
+import { getUsers } from "@/services/userService";
+import { User } from "@/services/authService";
 
-export default function RecentOrders() {
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+export default function ListUsers() {
+  const [users, setUsers] = useState<User[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -31,14 +31,14 @@ export default function RecentOrders() {
   };
 
   // Fetch subjects with search
-  const fetchSubjects = async (page: number, searchQuery: string = '') => {
+  const fetchUsers = async (page: number, searchQuery: string = "") => {
     setLoading(true);
     try {
-      const response = await getSubjects(page, limit, searchQuery);
-      setSubjects(response.subjects);
+      const response = await getUsers(page, limit, searchQuery);
+      setUsers(response.users);
       setTotalPages(response.totalPages);
     } catch (error) {
-      console.error("Failed to fetch subjects:", error);
+      console.error("Failed to fetch users:", error);
     } finally {
       setLoading(false);
     }
@@ -48,12 +48,12 @@ export default function RecentOrders() {
   const handleSearch = debounce((value: string) => {
     setSearchTerm(value);
     setCurrentPage(1);
-    fetchSubjects(1, value);
+    fetchUsers(1, value);
   }, 500);
 
   useEffect(() => {
-    fetchSubjects(currentPage, searchTerm);
-  }, [currentPage]); // searchTerm handled by handleSearch
+    fetchUsers(currentPage, searchTerm);
+  }, [currentPage, searchTerm]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -98,7 +98,7 @@ export default function RecentOrders() {
           <input
             ref={inputRef}
             type="text"
-            placeholder="Tìm kiếm môn học..."
+            placeholder="Tìm kiếm người dùng..."
             onChange={(e) => handleSearch(e.target.value)}
             className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
           />
@@ -116,7 +116,7 @@ export default function RecentOrders() {
       <div className="flex flex-col gap-2 mb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-            Danh sách môn học
+            Danh sách người dùng
           </h3>
         </div>
 
@@ -192,73 +192,72 @@ export default function RecentOrders() {
             <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
               <TableRow>
                 <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                  Full Name
+                  Người dùng
                 </TableCell>
                 <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                  Id
+                  Vai trò
                 </TableCell>
                 <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                  MaxTopics
+                  Trạng thái
                 </TableCell>
                 <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                  Name
+                  Hành động
                 </TableCell>
               </TableRow>
             </TableHeader>
-
             <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {subjects.length > 0 ? (
-                subjects.map((subject) => (
-                  <TableRow key={subject.id}>
+              {users.length > 0 ? (
+                users.map((user) => (
+                  <TableRow key={user.id}>
                     <TableCell className="py-3">
                       <div className="flex items-center gap-3">
                         <div className="h-[50px] w-[50px] overflow-hidden rounded-md">
                           <Image
                             width={50}
-                            height={50}
-                            src={subject.image || "https://picsum.photos/id/1016/300/200"}
+                            height={50} // Corrected from user.avatar
+                            src={user.avatar || "https://picsum.photos/id/1016/300/200"}
                             className="h-[50px] w-[50px] object-cover"
-                            alt={subject.name}
+                            alt={user.fullname}
                           />
                         </div>
                         <div>
-                          <Link href={`/update-subject/${subject.id}`}>
-                            <p className="font-medium text-gray-800 text-theme-sm dark:text-white/90 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer">
-                              {subject.name}
-                            </p>
-                          </Link>
+                          <p className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                            {user.fullname}
+                          </p>
                           <span className="text-gray-500 text-theme-xs dark:text-gray-400">
-                            {subject.description}
+                            {user.email}
                           </span>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                      {subject.id}
-                    </TableCell>
-                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                      {subject.maxTopics}
+                      <Badge
+                        size="sm"
+                        color={user.role === "ADMIN" ? "error" : "success"}
+                      >
+                        {user.role}
+                      </Badge>
                     </TableCell>
                     <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                       <Badge
                         size="sm"
-                        color={
-                          subject.name === "Delivered"
-                            ? "success"
-                            : subject.name === "Pending"
-                            ? "warning"
-                            : "error"
-                        }
+                        color={user.isVerified ? "success" : "warning"}
                       >
-                        {subject.name}
+                        {user.isVerified ? "Đã xác thực" : "Chưa xác thực"}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="py-3 text-theme-sm">
+                      <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200">
+                        Chỉnh sửa
+                      </button>
+                      {/* You can add a delete button here as well */}
                     </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
                   <TableCell colSpan={4} className="py-6 text-center text-gray-500 dark:text-gray-400">
-                    Không tìm thấy môn học nào.
+                    Không tìm thấy người dùng nào.
                   </TableCell>
                 </TableRow>
               )}

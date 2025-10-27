@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import Input from "@/components/form/input/InputField";
 import TextArea from "@/components/form/input/TextArea";
@@ -11,11 +13,11 @@ export default function CreateSubjectPage() {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    maxTopics: 0,
-    image: "",
+    maxTopics: 0
   });
-  const [imageFile, setImageFile] = useState<File | null>(null);
 
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [errors, setErrors] = useState<{
@@ -39,8 +41,11 @@ export default function CreateSubjectPage() {
   };
 
   const handleFileAccepted = (file: File) => {
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
     setImageFile(file);
-    handleChange("image", file.name);
+    setImagePreview(URL.createObjectURL(file));
   };
 
   const handleSubmit = async () => {
@@ -54,37 +59,61 @@ export default function CreateSubjectPage() {
 
     if (Object.values(newErrors).some((error) => error !== "")) {
       setMessage("Vui lòng điền đầy đủ thông tin!");
+      toast.warn("⚠️ Vui lòng điền đầy đủ thông tin!");
       return;
     }
 
+    setLoading(true);
+    setMessage("");
+
     try {
-      setLoading(true);
-      setMessage("");
-
-      let imageUrl = formData.image;
-
       const payload = {
         name: formData.name,
         description: formData.description,
         maxTopics: Number(formData.maxTopics),
-        image: imageUrl,
+        image: imageFile,
       };
 
       const created = await addSubject(payload);
 
-      setMessage(`✅ Đã tạo thành công môn học: ${created.name}`);
-      setFormData({ name: "", description: "", maxTopics: 0, image: "" });
+      toast.success(`Đã tạo thành công môn học: ${created.name}`);
+
+      // Đợi một chút để toast hiển thị rồi mới reset form
+      setTimeout(() => {
+        setFormData({ name: "", description: "", maxTopics: 0 });
+        setImageFile(null);
+        setImagePreview(null);
+      }, 500);
     } catch (error: any) {
       console.error("[handleSubmit] Error creating subject:", error);
-      setMessage("❌ Tạo môn học thất bại!");
+      toast.error("Tạo môn học thất bại!");
     } finally {
       setLoading(false);
     }
   };
 
+  // Cleanup effect để tránh memory leak từ URL.createObjectURL
+  useEffect(() => {
+    return () => {
+      if (imagePreview) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    };
+  }, [imagePreview]);
+
   return (
     <div>
+      {/* Toast */}
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        style={{ zIndex: 999999 }}
+      />
+
+      {/* Breadcrumb */}
       <PageBreadcrumb pageTitle="Tạo môn học" />
+
       <div className="max-w-3xl mx-auto mt-6 space-y-6">
         {/* Tên môn học */}
         <div>
@@ -136,15 +165,18 @@ export default function CreateSubjectPage() {
         {/* Ảnh minh họa */}
         <div>
           <h3 className="text-lg font-semibold mb-2">
-            Ảnh minh họa (link hoặc upload)
+            Ảnh minh họa
           </h3>
-          <Input
-            type="text"
-            value={formData.image}
-            placeholder="Dán link ảnh hoặc upload bên dưới"
-            onChange={(e) => handleChange("image", e.target.value)}
-          />
-          <div className="mt-4">
+          {imagePreview && (
+            <div className="mt-4 mb-4">
+              <img
+                src={imagePreview}
+                alt="Xem trước ảnh"
+                className="max-h-60 w-auto rounded-lg object-cover"
+              />
+            </div>
+          )}
+          <div className="mt-2">
             <DropzoneComponent onFileAccepted={handleFileAccepted} />
           </div>
         </div>
@@ -159,8 +191,30 @@ export default function CreateSubjectPage() {
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2 mx-auto"
           >
+            {loading && (
+              <svg
+                className="animate-spin h-5 w-5 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                ></path>
+              </svg>
+            )}
             {loading ? "Đang tạo..." : "Tạo môn học"}
           </button>
         </div>

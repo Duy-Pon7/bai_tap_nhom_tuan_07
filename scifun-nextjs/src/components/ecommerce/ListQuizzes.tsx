@@ -1,17 +1,18 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { getTopics, Topic } from "@/services/topicsService";
+// Import Quiz and getQuizzes from quizzService
+import { getQuizzes, Quiz } from "@/services/quizzService";
 import {
   Table,
   TableBody,
   TableCell,
   TableHeader,
   TableRow,
-} from "../ui/table";
+} from "../ui/table";import Badge from "../ui/badge/Badge";
 import Link from "next/link";
 
-export default function ListTopics() {
-  const [topics, setTopics] = useState<Topic[]>([]);
+export default function ListQuizzes() {
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]); // Changed topics to quizzes
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -28,15 +29,15 @@ export default function ListTopics() {
     };
   };
 
-  // Modify fetchTopics to include search parameter
-  const fetchTopics = async (page: number, searchQuery: string = '') => {
+  // Modify fetchQuizzes to include search parameter
+  const fetchQuizzes = async (page: number, searchQuery: string = '') => {
     setLoading(true);
     try {
-      const response = await getTopics(page, limit, undefined, searchQuery); // Pass undefined for topicId, searchQuery for searchName
-      setTopics(response.topics);
+      const response = await getQuizzes(page, limit, undefined, searchQuery); // Call getQuizzes, topicId is undefined for now
+      setQuizzes(response.quizzes); // Update state with quizzes
       setTotalPages(response.totalPages);
     } catch (error) {
-      console.error("Failed to fetch topics:", error);
+      console.error("Failed to fetch quizzes:", error); // Updated error message
     } finally {
       setLoading(false);
     }
@@ -45,14 +46,13 @@ export default function ListTopics() {
   // Add search handler with debounce
   const handleSearch = debounce((value: string) => {
     setSearchTerm(value);
-    setCurrentPage(1); // Reset to first page when searching
-    fetchTopics(1, value);
+    setCurrentPage(1);
+    // The useEffect below will handle fetching when searchTerm or currentPage changes
   }, 500);
 
-  // Modify useEffect to include searchTerm
   useEffect(() => {
-    fetchTopics(currentPage, searchTerm);
-  }, [currentPage]); // searchTerm is handled by handleSearch
+    fetchQuizzes(currentPage, searchTerm);
+  }, [currentPage, searchTerm]); // Added searchTerm to dependency array
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -101,7 +101,7 @@ export default function ListTopics() {
           <input
             ref={inputRef}
             type="text"
-            placeholder="Tìm kiếm chủ đề..." // Updated placeholder
+            placeholder="Tìm kiếm quiz..." // Updated placeholder
             onChange={(e) => handleSearch(e.target.value)}
             className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
           />
@@ -119,7 +119,7 @@ export default function ListTopics() {
       <div className="flex flex-col gap-2 mb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-            Danh sách topics
+            Danh sách quizzes
           </h3>
         </div>
 
@@ -177,25 +177,55 @@ export default function ListTopics() {
                 isHeader
                 className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
               >
-                Full Name
+                Title
               </TableCell>
               <TableCell
                 isHeader
                 className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
               >
-                Id
+                ID
               </TableCell>
               <TableCell
-                isHeader // Added Subject ID column
+                isHeader
                 className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
               >
-                Subject ID
+                Topic
               </TableCell>
               <TableCell
-                isHeader // Added Actions column for editing
+                isHeader
                 className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
               >
-                Actions
+                Unique Users
+              </TableCell>
+              <TableCell
+                isHeader
+                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+              >
+                Favorites
+              </TableCell>
+              <TableCell
+                isHeader
+                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+              >
+                Duration
+              </TableCell>
+              <TableCell
+                isHeader
+                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+              >
+                Last Attempt At
+              </TableCell>
+              <TableCell
+                isHeader
+                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+              >
+                Created At
+              </TableCell>
+              <TableCell
+                isHeader
+                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+              >
+                Updated At
               </TableCell>
             </TableRow>
           </TableHeader>
@@ -203,43 +233,99 @@ export default function ListTopics() {
           {/* Table Body */}
 
           <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
-            {topics.map((topic) => (
-              <TableRow key={topic.id} className="">
+            {quizzes.map((quiz) => ( // Iterate over quizzes
+              <TableRow key={quiz.id} className="">
                 <TableCell className="py-3">
                   <div className="flex items-center gap-3">
                     <div>
-                      <Link href={`/update-topic/${topic.id}`}>
+                      <Link href={`/update-quizz/${quiz.id}`}> {/* Link to update quiz */}
                         <p className="font-medium text-gray-800 text-theme-sm dark:text-white/90 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer">
-                          {topic.name}
+                          {quiz.title} {/* Display quiz title */}
                         </p>
                       </Link>
                       <span className="text-gray-500 text-theme-xs dark:text-gray-400">
-                        {topic.description}
+                        {quiz.description} {/* Display quiz description */}
                       </span>
                     </div>
                   </div>
                 </TableCell>
                 <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  {topic.id}
+                  {quiz.id} {/* Display quiz ID */}
                 </TableCell>
                 <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  {topic.subject} {/* Display subject ID */}
+                  {typeof quiz.topic === 'string' ? quiz.topic : quiz.topic.name} {/* Display topic ID or name if populated */}
                 </TableCell>
-                <TableCell className="py-3 text-theme-sm">
-                  <Link href={`/update-topic/${topic.id}`} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200">
-                    Edit
-                  </Link>
-                  {/* A delete button could be added here if desired */}
+                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                  {quiz.uniqueUserCount} {/* Display unique user count */}
                 </TableCell>
-
+                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                  <Badge
+                    size="sm"
+                    color={
+                      quiz.favoriteCount > 0
+                        ? "success"
+                        : "neutral"
+                    }
+                  >
+                    {quiz.favoriteCount} {/* Display favorite count */}
+                  </Badge>
+                </TableCell>
+                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                  {quiz.duration} minutes
+                </TableCell>
+                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                  {quiz.lastAttemptAt
+                    ? new Date(quiz.lastAttemptAt).toLocaleString()
+                    : "N/A"}
+                </TableCell>
+                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                  {quiz.createdAt
+                    ? new Date(quiz.createdAt).toLocaleString()
+                    : "N/A"}
+                </TableCell>
+                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                  {quiz.updatedAt
+                    ? new Date(quiz.updatedAt).toLocaleString()
+                    : "N/A"}
+                </TableCell>
               </TableRow>
             ))}
-            {topics.length === 0 && !loading && (
-              <TableRow><TableCell colSpan={4} className="py-6 text-center text-gray-500 dark:text-gray-400">Không tìm thấy chủ đề nào.</TableCell></TableRow>
+            {quizzes.length === 0 && !loading && (
+              <TableRow>
+                <TableCell colSpan={9} className="py-6 text-center text-gray-500 dark:text-gray-400">
+                  Không tìm thấy quiz nào.
+                </TableCell>
+              </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
+      {/* Loading state */}
+      {loading && (
+        <div className="flex flex-col items-center justify-center py-10">
+          <svg
+            className="animate-spin h-6 w-6 text-blue-500 mb-3"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            ></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+            ></path>
+          </svg>
+          <p className="text-gray-600 dark:text-gray-400">Đang tải dữ liệu...</p>
+        </div>
+      )}
       {/* Pagination Controls */}
       <div className="flex items-center justify-end gap-4 mt-4">
         <span className="text-sm text-gray-500 dark:text-gray-400">
