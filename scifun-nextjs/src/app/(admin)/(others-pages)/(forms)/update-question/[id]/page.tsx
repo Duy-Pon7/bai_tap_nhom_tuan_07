@@ -6,7 +6,6 @@ import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import Input from "@/components/form/input/InputField";
 import TextArea from "@/components/form/input/TextArea";
 import {
-  addQuestion,
   getQuestionById,
   updateQuestion,
   deleteQuestion,
@@ -32,31 +31,31 @@ export default function UpdateQuestionPage() {
     type: "single-choice" as "single-choice" | "multiple-choice",
   });
 
-  const [loadingSubmit, setLoadingSubmit] = useState(false);
-  const [loadingDelete, setLoadingDelete] = useState(false);
   const [errors, setErrors] = useState({
     quiz: "",
     content: "",
     options: "",
   });
 
+  const [loadingSubmit, setLoadingSubmit] = useState(false);
+  const [loadingDelete, setLoadingDelete] = useState(false);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
 
-  // Fetch all quizzes for dropdown
+  // Fetch danh sách quiz
   useEffect(() => {
     const fetchQuizzes = async () => {
       try {
-        const response = await getQuizzes(1, 1000); // Adjust limit if needed
+        const response = await getQuizzes(1, 1000);
         setQuizzes(response.quizzes);
       } catch (error) {
         console.error("Error fetching quizzes:", error);
-        toast.error("❌ Lỗi khi tải danh sách quiz!");
+        toast.error("❌ Không thể tải danh sách quiz!");
       }
     };
     fetchQuizzes();
   }, []);
 
-  // Fetch question data if ID exists (edit mode)
+  // Nếu có id => load câu hỏi để update
   useEffect(() => {
     if (!id) return;
 
@@ -64,21 +63,28 @@ export default function UpdateQuestionPage() {
       try {
         setLoadingSubmit(true);
         const question = await getQuestionById(id);
+
         setFormData({
           quiz:
             typeof question.quiz === "object" && question.quiz !== null
-              ? (question.quiz as any).id || (question.quiz as any)._id // Handle populated object with id or _id
+              ? (question.quiz as any).id || (question.quiz as any)._id
               : typeof question.quiz === "string"
-              ? question.quiz // Handle string id
-              : "", // Default value
-          content: question.content ?? "",
-          options: question.options ?? [],
-          explanation: question.explanation ?? "",
-          type: question.type ?? "single-choice",
+              ? question.quiz
+              : "",
+          content: question.content || "",
+          options:
+            question.options?.length > 0
+              ? question.options
+              : [
+                  { text: "", isCorrect: false },
+                  { text: "", isCorrect: false },
+                ],
+          explanation: question.explanation || "",
+          type: question.type || "single-choice",
         });
-      } catch (error: any) {
+      } catch (error) {
         console.error("Error fetching question:", error);
-        toast.error("❌ Không thể tải dữ liệu câu hỏi.");
+        toast.error("❌ Không thể tải dữ liệu câu hỏi!");
       } finally {
         setLoadingSubmit(false);
       }
@@ -89,7 +95,7 @@ export default function UpdateQuestionPage() {
 
   const handleChange = (
     field: keyof typeof formData,
-    value: string | QuestionOption[] | "single-choice" | "multiple-choice"
+    value: string | QuestionOption[]
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (field in errors) setErrors((prev) => ({ ...prev, [field]: "" }));
@@ -104,9 +110,7 @@ export default function UpdateQuestionPage() {
   const handleCorrectOptionChange = (index: number) => {
     const newOptions = [...formData.options];
     if (formData.type === "single-choice") {
-      newOptions.forEach((option, i) => {
-        option.isCorrect = i === index;
-      });
+      newOptions.forEach((opt, i) => (opt.isCorrect = i === index));
     } else {
       newOptions[index].isCorrect = !newOptions[index].isCorrect;
     }
@@ -127,12 +131,11 @@ export default function UpdateQuestionPage() {
       quiz: formData.quiz ? "" : "Quiz là bắt buộc.",
       content: formData.content ? "" : "Nội dung câu hỏi là bắt buộc.",
       options:
-        formData.options.some((opt) => opt.text) &&
+        formData.options.some((opt) => opt.text.trim()) &&
         formData.options.some((opt) => opt.isCorrect)
           ? ""
           : "Cần ít nhất một lựa chọn và một đáp án đúng.",
     };
-
     setErrors(newErrors);
 
     if (Object.values(newErrors).some((err) => err)) {
@@ -142,29 +145,23 @@ export default function UpdateQuestionPage() {
 
     try {
       setLoadingSubmit(true);
-
       const payload = {
         quiz: formData.quiz,
         content: formData.content,
-        options: formData.options.filter((opt) => opt.text.trim() !== ""), // Remove empty options
+        options: formData.options.filter((o) => o.text.trim() !== ""),
         explanation: formData.explanation || null,
         type: formData.type,
       };
 
       if (id) {
         const updated = await updateQuestion(id, payload);
-        toast.success(`Cập nhật câu hỏi thành công!`);
+        toast.success(`✅ Đã cập nhật câu hỏi thành công!`);
       } else {
-        // This page is for updating, so 'id' should always be present.
-        // If somehow accessed without an ID, it would be a creation scenario.
-        // For now, we'll prevent submission if no ID is found on this update page.
-        console.error("Attempted to submit update form without an ID.");
-        toast.error("Không thể cập nhật câu hỏi: Thiếu ID.");
-        return;
+        toast.error("❌ Không tìm thấy ID câu hỏi để cập nhật.");
       }
     } catch (error: any) {
       console.error("[handleSubmit] Error:", error);
-      toast.error(error.message || "Cập nhật câu hỏi thất bại!");
+      toast.error(error.message || "❌ Cập nhật thất bại!");
     } finally {
       setLoadingSubmit(false);
     }
@@ -172,18 +169,16 @@ export default function UpdateQuestionPage() {
 
   const handleDelete = async () => {
     if (!id) return;
-
     const confirmDelete = window.confirm("⚠️ Bạn có chắc chắn muốn xóa câu hỏi này?");
     if (!confirmDelete) return;
 
     try {
       setLoadingDelete(true);
-      await deleteQuestion(id);
-      toast.success(`Đã xóa câu hỏi thành công!`);
-      router.push("/admin/list-questions"); // Redirect to question list after deletion
+      const res = await deleteQuestion(id);
+      toast.success("🗑️ Đã xóa câu hỏi thành công!");
     } catch (error: any) {
       console.error("[handleDelete] Error:", error);
-      toast.error(error.message || "Xóa câu hỏi thất bại!");
+      toast.error(error.message || "❌ Xóa câu hỏi thất bại!");
     } finally {
       setLoadingDelete(false);
     }
@@ -191,70 +186,39 @@ export default function UpdateQuestionPage() {
 
   return (
     <div>
-      {/* Toast container */}
-      <ToastContainer
-        position="bottom-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        pauseOnHover
-        closeOnClick
-        draggable
-        style={{ zIndex: 999999 }}
-      />
-
-      <PageBreadcrumb pageTitle={id ? "Cập nhật câu hỏi" : "Tạo câu hỏi"} />
+      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
+      <PageBreadcrumb pageTitle="Cập nhật câu hỏi" />
 
       <div className="max-w-3xl mx-auto mt-6 space-y-6">
-        {/* Chọn Quiz */}
+        {/* Quiz chọn */}
         <div>
           <h3 className="text-lg font-semibold mb-2">
             Quiz <span className="text-red-500">*</span>
           </h3>
-          <div className="relative">
-            <select
-              value={formData.quiz}
-              onChange={(e) => handleChange("quiz", e.target.value)}
-              className={`w-full appearance-none border rounded-lg px-3 py-2 bg-white dark:bg-dark-900 ${
-                errors.quiz ? "border-red-500" : "border-gray-300"
-              }`}
-            >
-              <option value="">-- Chọn Quiz --</option>
-              {quizzes.map((quiz) => (
-                <option key={quiz.id} value={quiz.id}>
-                  {quiz.title}
-                </option>
-              ))}
-            </select>
-            <span className="absolute text-gray-500 -translate-y-1/2 pointer-events-none right-3 top-1/2 dark:text-gray-400">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </span>
-          </div>
-          {errors.quiz && (
-            <p className="text-sm text-red-600 mt-1">{errors.quiz}</p>
-          )}
+          <select
+            value={formData.quiz}
+            onChange={(e) => handleChange("quiz", e.target.value)}
+            className="w-full border rounded-lg px-3 py-2"
+          >
+            <option value="">-- Chọn quiz --</option>
+            {quizzes.map((quiz) => (
+              <option key={quiz.id} value={quiz.id}>
+                {quiz.title}
+              </option>
+            ))}
+          </select>
+          {errors.quiz && <p className="text-sm text-red-600 mt-1">{errors.quiz}</p>}
         </div>
 
-        {/* Nội dung câu hỏi */}
+        {/* Nội dung */}
         <div>
           <h3 className="text-lg font-semibold mb-2">
             Nội dung câu hỏi <span className="text-red-500">*</span>
           </h3>
           <TextArea
             rows={6}
-            placeholder="Nhập nội dung câu hỏi..."
             value={formData.content}
-            onChange={(value: string) => handleChange("content", value)}
+            onChange={(val: string) => handleChange("content", val)}
             error={!!errors.content}
             hint={errors.content}
           />
@@ -267,22 +231,16 @@ export default function UpdateQuestionPage() {
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="radio"
-                name="questionType"
-                value="single-choice"
                 checked={formData.type === "single-choice"}
                 onChange={() => handleChange("type", "single-choice")}
-                className="form-radio h-4 w-4 text-blue-600"
               />
               <span>Một đáp án</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="radio"
-                name="questionType"
-                value="multiple-choice"
                 checked={formData.type === "multiple-choice"}
                 onChange={() => handleChange("type", "multiple-choice")}
-                className="form-radio h-4 w-4 text-blue-600"
               />
               <span>Nhiều đáp án</span>
             </label>
@@ -294,42 +252,36 @@ export default function UpdateQuestionPage() {
           <h3 className="text-lg font-semibold mb-2">
             Các lựa chọn <span className="text-red-500">*</span>
           </h3>
-          <div className="space-y-3">
-            {formData.options.map((option, index) => (
-              <div key={index} className="flex items-center gap-2">
-                <input
-                  type={formData.type === "single-choice" ? "radio" : "checkbox"}
-                  name="correctOption"
-                  checked={option.isCorrect}
-                  onChange={() => handleCorrectOptionChange(index)}
-                  className="form-checkbox h-5 w-5 text-blue-600 rounded"
-                />
-                <Input
-                  type="text"
-                  value={option.text}
-                  placeholder={`Lựa chọn ${index + 1}`}
-                  onChange={(e) => handleOptionChange(index, e.target.value)}
-                  className="flex-grow"
-                />
-                <button
-                  onClick={() => removeOption(index)}
-                  className="text-red-500 hover:text-red-700 p-2"
-                  disabled={formData.options.length <= 2}
-                >
-                  Xóa
-                </button>
-              </div>
-            ))}
-          </div>
+          {formData.options.map((opt, index) => (
+            <div key={index} className="flex items-center gap-2 mb-2">
+              <input
+                type={formData.type === "single-choice" ? "radio" : "checkbox"}
+                checked={opt.isCorrect}
+                onChange={() => handleCorrectOptionChange(index)}
+              />
+              <Input
+                type="text"
+                value={opt.text}
+                placeholder={`Lựa chọn ${index + 1}`}
+                onChange={(e) => handleOptionChange(index, e.target.value)}
+                className="flex-grow"
+              />
+              <button
+                onClick={() => removeOption(index)}
+                disabled={formData.options.length <= 2}
+                className="text-red-500 hover:text-red-700"
+              >
+                Xóa
+              </button>
+            </div>
+          ))}
           <button
             onClick={addOption}
-            className="mt-3 px-4 py-2 text-sm bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300"
+            className="mt-2 px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
           >
             Thêm lựa chọn
           </button>
-          {errors.options && (
-            <p className="text-sm text-red-600 mt-1">{errors.options}</p>
-          )}
+          {errors.options && <p className="text-sm text-red-600 mt-1">{errors.options}</p>}
         </div>
 
         {/* Giải thích */}
@@ -337,9 +289,8 @@ export default function UpdateQuestionPage() {
           <h3 className="text-lg font-semibold mb-2">Giải thích (Tùy chọn)</h3>
           <TextArea
             rows={4}
-            placeholder="Nhập giải thích cho đáp án đúng..."
             value={formData.explanation}
-            onChange={(value: string) => handleChange("explanation", value)}
+            onChange={(val: string) => handleChange("explanation", val)}
           />
         </div>
 
@@ -348,7 +299,7 @@ export default function UpdateQuestionPage() {
           <button
             onClick={handleSubmit}
             disabled={loadingSubmit}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
             {loadingSubmit ? "Đang cập nhật..." : "Cập nhật câu hỏi"}
           </button>
@@ -357,7 +308,7 @@ export default function UpdateQuestionPage() {
             <button
               onClick={handleDelete}
               disabled={loadingDelete}
-              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
             >
               {loadingDelete ? "Đang xóa..." : "Xóa câu hỏi"}
             </button>

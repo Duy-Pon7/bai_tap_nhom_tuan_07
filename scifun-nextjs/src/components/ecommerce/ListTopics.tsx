@@ -9,6 +9,7 @@ import {
   TableRow,
 } from "../ui/table";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function ListTopics() {
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -207,6 +208,18 @@ export default function ListTopics() {
               <TableRow key={topic.id} className="">
                 <TableCell className="py-3">
                   <div className="flex items-center gap-3">
+                    {topic.subject && typeof topic.subject === "object" && topic.subject.image && (
+                      <div className="h-[50px] w-[50px] overflow-hidden rounded-md">
+                        <Image
+                          width={50}
+                          height={50}
+                          src={topic.subject.image}
+                          alt={topic.subject.name || "Subject Image"}
+                          className="h-[50px] w-[50px] object-cover"
+                        />
+                      </div>
+                    )}
+                  <div className="flex items-center gap-3">
                     <div>
                       <Link href={`/update-topic/${topic.id}`}>
                         <p className="font-medium text-gray-800 text-theme-sm dark:text-white/90 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer">
@@ -218,12 +231,28 @@ export default function ListTopics() {
                       </span>
                     </div>
                   </div>
+                  </div>
                 </TableCell>
                 <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                   {topic.id}
                 </TableCell>
+                {/* Display full subject info (name, description) except its ID */}
                 <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  {topic.subject} {/* Display subject ID */}
+                  {(() => {
+                    if (!topic.subject) {
+                      return "N/A";
+                    }
+                    if (typeof topic.subject === "object") {
+                      return (
+                        <div>
+                          <p className="font-medium text-gray-800 dark:text-white/90">{topic.subject.name}</p>
+                          <span className="text-gray-500 text-theme-xs dark:text-gray-400">{topic.subject.description}</span>
+                        </div>
+                      );
+                    }
+                    // If topic.subject is a string, it represents the subject ID, which should be excluded.
+                    return "N/A (Subject ID not populated)"; 
+                  })()}
                 </TableCell>
                 <TableCell className="py-3 text-theme-sm">
                   <Link href={`/update-topic/${topic.id}`} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200">

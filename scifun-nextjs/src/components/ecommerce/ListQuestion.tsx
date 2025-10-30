@@ -58,12 +58,15 @@ export default function ListQuestions() {
     fetchQuizzes();
   }, []);
 
+  // This effect now handles both quiz selection changes and pagination.
   useEffect(() => {
-    setCurrentPage(1);
-    fetchQuestions(1, selectedQuiz || undefined);
-  }, [selectedQuiz]);
+    // When selectedQuiz changes, we want to reset to page 1.
+    // The logic to do that is handled before this effect runs.
+    fetchQuestions(currentPage, selectedQuiz || undefined);
+  }, [currentPage, selectedQuiz]);
 
   useEffect(() => {
+    // This effect is for keyboard shortcuts and can remain as is.
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "k") {
         event.preventDefault();
@@ -74,6 +77,12 @@ export default function ListQuestions() {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  const handleQuizChange = (quizId: string) => {
+    // When the user selects a new quiz, reset to the first page.
+    setSelectedQuiz(quizId);
+    setCurrentPage(1);
+  };
 
   const handlePrevPage = () => {
     setCurrentPage((prev) => Math.max(prev - 1, 1));
@@ -95,7 +104,7 @@ export default function ListQuestions() {
         <div className="flex items-center gap-3">
           <select
             value={selectedQuiz}
-            onChange={(e) => setSelectedQuiz(e.target.value)}
+            onChange={(e) => handleQuizChange(e.target.value)}
             className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03]"
           >
             <option value="">Tất cả các quiz</option>
@@ -186,16 +195,31 @@ export default function ListQuestions() {
                         : "N/A" // If it's null or undefined
                       }
                     </TableCell>
+                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                      {question.explanation ? question.explanation.substring(0, 50) + (question.explanation.length > 50 ? "..." : "") : "N/A"}
+                    </TableCell>
+                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                      {question.createdAt
+                        ? new Date(question.createdAt).toLocaleString()
+                        : "N/A"}
+                    </TableCell>
+                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                      {question.updatedAt
+                        ? new Date(question.updatedAt).toLocaleString()
+                        : "N/A"}
+                    </TableCell>
                     <TableCell className="py-3 text-theme-sm">
                       <Link href={`/update-question/${question.id}`} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200">
                         Chỉnh sửa
                       </Link>
+                      {/* Optionally, add a delete button here */}
+                      {/* <button onClick={() => handleDelete(question.id)} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200 ml-2">Xóa</button> */}
                     </TableCell>
                   </TableRow>
                 ))
-              ) : (
+              ) : ( // Adjusted colSpan from 5 to 8 (5 existing + 3 new)
                 <TableRow>
-                  <TableCell colSpan={5} className="py-6 text-center text-gray-500 dark:text-gray-400">
+                  <TableCell colSpan={8} className="py-6 text-center text-gray-500 dark:text-gray-400">
                     Không tìm thấy câu hỏi nào.
                   </TableCell>
                 </TableRow>

@@ -99,11 +99,11 @@ export const addSubject = async (
 };
 
 /**
- * Cập nhật thông tin môn học
+ * Cập nhật thông tin môn học (có thể kèm ảnh)
  */
 export const updateSubject = async (
   id: string,
-  subjectData: Partial<Omit<Subject, "id" | "image"> & { image?: string | File }>
+  subjectData: Omit<Subject, "id" | "image"> & { image?: string | File }
 ): Promise<Subject> => {
   const { image, ...rest } = subjectData;
   const isFileUpload = image instanceof File;
@@ -119,7 +119,12 @@ export const updateSubject = async (
     formData.append("image", image);
     body = formData;
   } else {
-    body = JSON.stringify({ ...rest, image });
+    // 🔧 Không có ảnh mới → loại bỏ field image
+    const bodyObj: any = { ...rest };
+    if (image !== undefined && image !== null && image !== "") {
+      bodyObj.image = image;
+    }
+    body = JSON.stringify(bodyObj);
   }
 
   const res = await fetch(`${BASE_URL}/update-subject/${id}`, {
@@ -136,6 +141,7 @@ export const updateSubject = async (
   const data = await res.json();
   return data.data;
 };
+
 
 /**
  * Lấy thông tin chi tiết một môn học bằng ID

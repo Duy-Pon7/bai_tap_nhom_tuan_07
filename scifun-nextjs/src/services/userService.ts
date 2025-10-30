@@ -1,5 +1,3 @@
-// src/services/userService.ts
-
 import { getToken } from "./authService";
 import { User } from "./authService"; // Reusing the User interface from authService
 
@@ -37,14 +35,14 @@ const getAuthHeaders = (isFormData = false) => {
  */
 export const getUsers = async (
   page = 1,
-  limit = 10,
-  search = ''
+  limit = 1,
+  search = ""
 ): Promise<UserAPIResponse> => {
   const params = new URLSearchParams({
     page: String(page),
     limit: String(limit),
   });
-  if (search) params.append('search', search);
+  if (search) params.append("search", search);
 
   const res = await fetch(`${BASE_URL}/get-user-list?${params.toString()}`, {
     headers: getAuthHeaders(),
@@ -90,4 +88,22 @@ export const addUser = async (
   // Ánh xạ _id từ backend sang id ở frontend
   const { _id, ...rest } = createdUser;
   return { ...rest, id: _id };
+};
+
+/**
+ * Xóa người dùng (chỉ dành cho Admin)
+ * Endpoint: DELETE /api/v1/user/delete-user/:id
+ */
+export const deleteUserById = async (id: string): Promise<{ message: string }> => {
+  const res = await fetch(`http://localhost:5000/api/v1/delete-user/${id}`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const errorMessage = errorData.message || "Xóa người dùng thất bại.";
+    throw new Error(errorMessage);
+  }
+
+  return res.json();
 };
