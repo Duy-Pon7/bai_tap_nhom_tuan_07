@@ -1,12 +1,13 @@
 // src/services/topicService.ts
 
 import { getToken } from "./authService";
+import { Subject } from "./subjectService";
 
 export interface Topic {
   id?: string;
   name: string;
   description: string;
-  subject?: string | null; // id hoặc null
+  subject?: Subject | string | null; // Có thể là object Subject, string ID, hoặc null
 }
 export interface TopicAPIResponse {
   page: number;
@@ -42,15 +43,15 @@ const getAuthHeaders = (isFormData = false) => {
 export const getTopics = async (
   page = 1,
   limit = 10,
-  topicId?: string,
-  searchName = ''
+  subjectId?: string,
+  search = ''
 ): Promise<TopicAPIResponse> => {
   const params = new URLSearchParams({
     page: String(page),
     limit: String(limit),
   });
-  if (topicId) params.append('topicId', topicId);
-  if (searchName) params.append('searchName', searchName);
+  if (subjectId) params.append('subjectId', subjectId);
+  if (search) params.append('search', search);
 
   const res = await fetch(`${BASE_URL}/get-topics?${params.toString()}`, {
     headers: getAuthHeaders(),
@@ -68,8 +69,16 @@ export const getTopics = async (
 
   // Map _id from backend to id on frontend for each topic
   const mappedTopics = json.data.topics.map((topic: any) => {
-    const { _id, ...rest } = topic;
-    return { ...rest, id: _id };
+    const { _id, subject, ...rest } = topic;
+    let mappedSubject: Subject | string | null = null;
+
+    // Nếu subject là object, map _id của nó sang id
+    if (subject && typeof subject === 'object' && subject._id) {
+      const { _id: subjectId, ...restOfSubject } = subject;
+      mappedSubject = { ...restOfSubject, id: subjectId };
+    }
+
+    return { ...rest, id: _id, subject: mappedSubject };
   });
 
   // Return the full response with mapped subjects

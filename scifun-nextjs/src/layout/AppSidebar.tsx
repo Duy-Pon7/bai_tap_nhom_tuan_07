@@ -17,9 +17,10 @@ import {
   PlugInIcon,
   TableIcon,
   UserCircleIcon,
+  VideoIcon,
+  DocsIcon, TaskIcon,
 } from "../icons/index";
 import SidebarWidget from "./SidebarWidget";
-
 type NavItem = {
   name: string;
   icon: React.ReactNode;
@@ -51,12 +52,12 @@ const navItems: NavItem[] = [
 
     {
     name: "Subject",
-    icon: <ListIcon />,
+    icon: <ListIcon  />,
     subItems: [{ name: "List Subjects", path: "/list-subjects", pro: false }, { name: "Add Subject", path: "/add-subject", pro: false }],
   },  
   {
     name: "Topics",
-    icon: <ListIcon />,
+    icon: <TaskIcon  />,
     subItems: [{ name: "List Topics", path: "/list-topics", pro: false }, { name: "Add Topic", path: "/add-topics", pro: false }],
   },
   {
@@ -66,13 +67,18 @@ const navItems: NavItem[] = [
   },
   {
     name: "Questions",
-    icon: <PageIcon />,
+    icon: <DocsIcon  />,
     subItems: [{ name: "List Questions", path: "/list-questions", pro: false }, { name: "Add Question", path: "/add-question", pro: false }],
   },
   {
     name: "Users",
     icon: <UserCircleIcon />,
     subItems: [{ name: "List Users", path: "/list-users", pro: false }, { name: "Add User", path: "/add-user", pro: false }],
+  },
+    {
+    name: "Videos",
+    icon: <VideoIcon  />,
+    subItems: [{ name: "List Videos", path: "/list-videos", pro: false }, { name: "Add Video", path: "/add-video", pro: false }],
   },
   // {
   //   name: "Tables",

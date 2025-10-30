@@ -9,26 +9,18 @@ import {
 } from "../ui/table";
 import Badge from "../ui/badge/Badge";
 import Image from "next/image";
-import { getUsers } from "@/services/userService";
+import { getUsers, deleteUserById } from "@/services/userService";
 import { User } from "@/services/authService";
+import { useDebounce } from "../../hooks/useDebounce";
 
 export default function ListUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const limit = 5;
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Debounce function
-  const debounce = (func: Function, wait: number) => {
-    let timeout: NodeJS.Timeout;
-    return (...args: any[]) => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func(...args), wait);
-    };
-  };
 
   // Fetch subjects with search
   const fetchUsers = async (page: number, searchQuery: string = "") => {
@@ -44,16 +36,16 @@ export default function ListUsers() {
     }
   };
 
-  // Search handler with debounce
-  const handleSearch = debounce((value: string) => {
-    setSearchTerm(value);
-    setCurrentPage(1);
-    fetchUsers(1, value);
-  }, 500);
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
   useEffect(() => {
-    fetchUsers(currentPage, searchTerm);
-  }, [currentPage, searchTerm]);
+    // Reset to page 1 when search term changes
+    if (debouncedSearchTerm) {
+      setCurrentPage(1);
+    }
+    // Fetch users when page or debounced search term changes
+    fetchUsers(currentPage, debouncedSearchTerm);
+  }, [currentPage, debouncedSearchTerm]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -73,6 +65,18 @@ export default function ListUsers() {
 
   const handleNextPage = () => {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (window.confirm("Bạn có chắc chắn muốn xóa người dùng này không?")) {
+      try {
+        await deleteUserById(userId);
+        // Refetch users to update the list
+        fetchUsers(currentPage, debouncedSearchTerm);
+      } catch (error) {
+        console.error("Failed to delete user:", error);
+      }
+    }
   };
 
   const searchBar = (
@@ -99,7 +103,7 @@ export default function ListUsers() {
             ref={inputRef}
             type="text"
             placeholder="Tìm kiếm người dùng..."
-            onChange={(e) => handleSearch(e.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
           />
           <button className="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-50 px-[7px] py-[4.5px] text-xs -tracking-[0.2px] text-gray-500 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400">
@@ -247,10 +251,12 @@ export default function ListUsers() {
                       </Badge>
                     </TableCell>
                     <TableCell className="py-3 text-theme-sm">
-                      <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200">
-                        Chỉnh sửa
+                      <button
+                        onClick={() => handleDeleteUser(user.id)}
+                        className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200"
+                      >
+                        Xóa
                       </button>
-                      {/* You can add a delete button here as well */}
                     </TableCell>
                   </TableRow>
                 ))

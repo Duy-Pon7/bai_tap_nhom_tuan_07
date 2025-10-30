@@ -1,4 +1,5 @@
 import Cookies from "js-cookie";
+import { deleteUserById } from "./userService";
 
 const BASE_URL = "http://localhost:5000/api/v1/user";
 
@@ -139,4 +140,12 @@ export const getUserInfoById = async (id: string): Promise<User> => {
 
   // Map _id from backend to id on frontend
   return { ...userData, id: userData._id };
+};
+
+/**
+ * Xóa người dùng theo ID.
+ * Hàm này gọi `deleteUserById` từ `userService` để thực hiện.
+ */
+export const deleteUser = async (id: string): Promise<{ message: string }> => {
+  return deleteUserById(id);
 };

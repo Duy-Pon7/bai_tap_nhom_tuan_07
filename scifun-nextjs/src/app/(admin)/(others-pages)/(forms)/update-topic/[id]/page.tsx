@@ -5,8 +5,9 @@ import { useParams } from "next/navigation";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import Input from "@/components/form/input/InputField";
 import TextArea from "@/components/form/input/TextArea";
-import { addTopic, getTopicById, updateTopic, deleteTopic } from "@/services/topicsService";
+import { getTopicById, updateTopic, deleteTopic, addTopic } from "@/services/topicsService";
 import { getSubjects } from "@/services/subjectService";
+import { ToastContainer, toast } from "react-toastify";
 
 export default function UpdateTopicPage() {
   const params = useParams();
@@ -19,7 +20,6 @@ export default function UpdateTopicPage() {
   });
 
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
   const [errors, setErrors] = useState({
     name: "",
     description: "",
@@ -40,6 +40,7 @@ export default function UpdateTopicPage() {
         setSubjects(subjectOptions);
       } catch (error) {
         console.error("Error fetching subjects:", error);
+        toast.error("❌ Lỗi khi tải danh sách môn học!");
       }
     };
 
@@ -57,11 +58,15 @@ export default function UpdateTopicPage() {
         setFormData({ // Sử dụng nullish coalescing operator để phòng trường hợp giá trị là null/undefined
           name: topic.name ?? "",
           description: topic.description ?? "",
-          subject: topic.subject ?? "",
+          subject: typeof topic.subject === 'object' && topic.subject !== null 
+            ? (topic.subject as any).id || (topic.subject as any)._id // Lấy id từ object subject
+            : typeof topic.subject === 'string' 
+            ? topic.subject // Nếu đã là string id
+            : "", // Giá trị mặc định
         });
       } catch (error) {
         console.error("Error fetching topic:", error);
-        setMessage("❌ Không thể tải dữ liệu chủ đề.");
+        toast.error("❌ Không thể tải dữ liệu chủ đề.");
       } finally {
         setLoading(false);
       }
@@ -79,19 +84,20 @@ const handleDelete = async () => {
   if (!id) return; // Nếu không có ID (trang tạo mới), thì không xóa được
 
   const confirmDelete = window.confirm("⚠️ Bạn có chắc chắn muốn xóa chủ đề này không?");
-  if (!confirmDelete) return;
+  if (!confirmDelete) {
+    return;
+  }
 
   try {
     setLoading(true);
-    setMessage("");
     const res = await deleteTopic(id);
-    setMessage(`🗑️ ${res.message}`);
+    toast.success(`🗑️ ${res.message}`);
     
     // Có thể chuyển hướng về danh sách topic sau vài giây (nếu muốn)
     // Ví dụ: window.location.href = "/admin/topics";
   } catch (error: any) {
     console.error("[handleDelete] Error:", error);
-    setMessage("❌ Xóa chủ đề thất bại!");
+    toast.error("❌ Xóa chủ đề thất bại!");
   } finally {
     setLoading(false);
   }
@@ -108,13 +114,12 @@ const handleDelete = async () => {
     setErrors(newErrors);
 
     if (Object.values(newErrors).some((err) => err)) {
-      setMessage("⚠️ Vui lòng điền đầy đủ thông tin!");
+      toast.warn("⚠️ Vui lòng điền đầy đủ thông tin!");
       return;
     }
 
     try {
       setLoading(true);
-      setMessage("");
 
       const payload = {
         name: formData.name,
@@ -123,16 +128,18 @@ const handleDelete = async () => {
       };
 
       if (id) {
-        const updated = await updateTopic(id, payload);
-        setMessage(`✅ Cập nhật thành công: ${updated.name}`);
+        const updatedTopic = await updateTopic(id, payload);
+        toast.success(`✅ Cập nhật thành công chủ đề: ${updatedTopic.name}`);
       } else {
         const created = await addTopic(payload);
-        setMessage(`✅ Đã tạo thành công chủ đề: ${created.name}`);
-        setFormData({ name: "", description: "", subject: "" }); // Reset form sau khi tạo
+        toast.success(`✅ Đã tạo thành công chủ đề: ${created.name}`);
+        setTimeout(() => {
+          setFormData({ name: "", description: "", subject: "" }); // Reset form sau khi tạo
+        }, 500);
       }
     } catch (error: any) {
       console.error("[handleSubmit] Error:", error);
-      setMessage("❌ Thao tác thất bại!");
+      toast.error("❌ Thao tác thất bại!");
     } finally {
       setLoading(false);
     }
@@ -140,6 +147,13 @@ const handleDelete = async () => {
 
   return (
     <div>
+      {/* Toast container (góc phải) */}
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        style={{ zIndex: 999999 }}
+      />
       <PageBreadcrumb pageTitle={id ? "Cập nhật chủ đề" : "Tạo chủ đề"} />
       <div className="max-w-3xl mx-auto mt-6 space-y-6">
         {/* Dropdown chọn Subject */}
@@ -202,17 +216,6 @@ const handleDelete = async () => {
             hint={errors.description}
           />
         </div>
-
-        {/* Thông báo */}
-        {message && (
-          <p
-            className={`text-sm mt-2 text-center ${
-              message.includes("❌") ? "text-red-600" : "text-green-600"
-            }`}
-          >
-            {message}
-          </p>
-        )}
 
 <div className="pt-4 flex justify-center gap-4">
   {/* Nút Lưu / Cập nhật */}

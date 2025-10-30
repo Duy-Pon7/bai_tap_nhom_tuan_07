@@ -13,7 +13,7 @@ export default function CreateSubjectPage() {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    maxTopics: 0
+    maxTopics: 0,
   });
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -24,7 +24,13 @@ export default function CreateSubjectPage() {
     name: string;
     description: string;
     maxTopics: string;
-  }>({ name: "", description: "", maxTopics: "" });
+    image: string;
+  }>({
+    name: "",
+    description: "",
+    maxTopics: "",
+    image: "",
+  });
 
   const handleChange = (
     field: keyof typeof formData,
@@ -46,13 +52,16 @@ export default function CreateSubjectPage() {
     }
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
+    setErrors((prev) => ({ ...prev, image: "" }));
   };
 
   const handleSubmit = async () => {
     const newErrors = {
       name: formData.name ? "" : "Tên môn học là bắt buộc.",
       description: formData.description ? "" : "Mô tả là bắt buộc.",
-      maxTopics: formData.maxTopics > 0 ? "" : "Số chủ đề tối đa phải lớn hơn 0.",
+      maxTopics:
+        formData.maxTopics > 0 ? "" : "Số chủ đề tối đa phải lớn hơn 0.",
+      image: imageFile ? "" : "Ảnh minh họa là bắt buộc.",
     };
 
     setErrors(newErrors);
@@ -78,7 +87,6 @@ export default function CreateSubjectPage() {
 
       toast.success(`Đã tạo thành công môn học: ${created.name}`);
 
-      // Đợi một chút để toast hiển thị rồi mới reset form
       setTimeout(() => {
         setFormData({ name: "", description: "", maxTopics: 0 });
         setImageFile(null);
@@ -92,7 +100,6 @@ export default function CreateSubjectPage() {
     }
   };
 
-  // Cleanup effect để tránh memory leak từ URL.createObjectURL
   useEffect(() => {
     return () => {
       if (imagePreview) {
@@ -165,7 +172,7 @@ export default function CreateSubjectPage() {
         {/* Ảnh minh họa */}
         <div>
           <h3 className="text-lg font-semibold mb-2">
-            Ảnh minh họa
+            Ảnh minh họa <span className="text-red-500">*</span>
           </h3>
           {imagePreview && (
             <div className="mt-4 mb-4">
@@ -177,7 +184,13 @@ export default function CreateSubjectPage() {
             </div>
           )}
           <div className="mt-2">
-            <DropzoneComponent onFileAccepted={handleFileAccepted} />
+            <DropzoneComponent
+              onFileAccepted={handleFileAccepted}
+              error={!!errors.image}
+            />
+            {errors.image && (
+              <p className="text-red-500 text-sm mt-1">{errors.image}</p>
+            )}
           </div>
         </div>
 

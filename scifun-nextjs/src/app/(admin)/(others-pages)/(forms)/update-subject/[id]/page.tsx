@@ -80,36 +80,44 @@ export default function UpdateSubjectPage() {
 
   // Submit cập nhật
   const handleSubmit = async () => {
-    const newErrors = {
-      name: formData.name ? "" : "Tên môn học là bắt buộc.",
-      description: formData.description ? "" : "Mô tả là bắt buộc.",
-      maxTopics: formData.maxTopics > 0 ? "" : "Số lượng chủ đề tối đa phải lớn hơn 0.",
+  const newErrors = {
+    name: formData.name ? "" : "Tên môn học là bắt buộc.",
+    description: formData.description ? "" : "Mô tả là bắt buộc.",
+    maxTopics: formData.maxTopics > 0 ? "" : "Số lượng chủ đề tối đa phải lớn hơn 0.",
+  };
+
+  setErrors(newErrors);
+  if (Object.values(newErrors).some((err) => err)) {
+    toast.warn("⚠️ Vui lòng điền đầy đủ thông tin!");
+    return;
+  }
+
+  try {
+    setLoadingUpdate(true);
+
+    const payload: any = {
+      name: formData.name,
+      description: formData.description,
+      maxTopics: Number(formData.maxTopics),
     };
 
-    setErrors(newErrors);
-    if (Object.values(newErrors).some((err) => err)) {
-      toast.warn("⚠️ Vui lòng điền đầy đủ thông tin!");
-      return;
+    // ✅ Only include the image in the payload if a new one has been selected.
+    // If not, the backend will keep the existing image.
+    if (imageFile) {
+      payload.image = imageFile;
     }
 
-    try {
-      setLoadingUpdate(true);
-      const payload = {
-        name: formData.name,
-        description: formData.description,
-        maxTopics: Number(formData.maxTopics),
-        image: imageFile, // Gửi file mới nếu có
-      };
+    const updated = await updateSubject(id as string, payload);
+    toast.success(`✅ Cập nhật thành công môn học: ${updated.name}`);
+    setTimeout(() => router.push("/list-subjects"), 1000);
+  } catch (error) {
+    console.error("[handleSubmit] Error updating subject:", error);
+    toast.error("❌ Cập nhật môn học thất bại!");
+  } finally {
+    setLoadingUpdate(false);
+  }
+};
 
-      const updated = await updateSubject(id as string, payload);
-      toast.success(`✅ Cập nhật thành công môn học: ${updated.name}`);
-    } catch (error) {
-      console.error("[handleSubmit] Error updating subject:", error);
-      toast.error("❌ Cập nhật môn học thất bại!");
-    } finally {
-      setLoadingUpdate(false);
-    }
-  };
 
   // Xóa môn học
   const handleDelete = async () => {
@@ -120,11 +128,11 @@ export default function UpdateSubjectPage() {
     try {
       setLoadingDelete(true);
       await deleteSubject(id as string);
-      toast.success("✅ Xóa môn học thành công! Đang chuyển hướng...");
-      setTimeout(() => router.push("/list-subjects"), 2000);
+      toast.success("Xóa môn học thành công! Đang chuyển hướng...");
+      setTimeout(() => router.push("/list-subjects"), 1000);
     } catch (error) {
       console.error("[handleDelete] Error deleting subject:", error);
-      toast.error("❌ Xóa môn học thất bại!");
+      toast.error("Xóa môn học thất bại!");
       setLoadingDelete(false);
     }
   };

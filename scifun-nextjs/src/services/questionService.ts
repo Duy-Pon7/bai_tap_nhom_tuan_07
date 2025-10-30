@@ -113,8 +113,23 @@ export const getQuestionById = async (id: string): Promise<Question> => {
   }
 
   const json = await res.json();
-  const { _id, ...rest } = json.data;
-  return { id: _id, ...rest };
+  const questionData = json.data;
+
+  // Map the `answers` array to the `options` array, removing the `_id` from each option.
+  const mappedOptions = (questionData.answers || []).map((option: any) => ({
+    text: option.text,
+    isCorrect: option.isCorrect,
+  }));
+
+  // Map backend fields to frontend interface
+  return {
+    ...questionData,
+    id: questionData._id,
+    content: questionData.text, // Map `text` from API to `content`
+    options: mappedOptions, // Use the mapped options
+    quiz: typeof questionData.quiz === 'object' ? questionData.quiz._id : questionData.quiz,
+    explanation: questionData.explanation ?? null,
+  };
 };
 
 /**
@@ -165,20 +180,38 @@ export const updateQuestion = async (
   id: string,
   question: Partial<Omit<Question, "id">>
 ): Promise<Question> => {
+  // Map frontend fields to backend API fields before sending
+  const { content, options, ...restOfQuestion } = question;
+  const payload: any = { ...restOfQuestion };
+  if (content) {
+    payload.text = content; // Map `content` to `text`
+  }
+  if (options) {
+    payload.answers = options; // Map `options` to `answers`
+  }
+
   const res = await fetch(`${BASE_URL}/update-question/${id}`, {
     method: "PUT",
     headers: getAuthHeaders(),
-    body: JSON.stringify(question),
+    body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
     const errorText = await res.text();
     throw new Error(`Failed to update question: ${errorText}`);
   }
-
   const json = await res.json();
-  const { _id, ...rest } = json.data;
-  return { id: _id, ...rest };
+  const updatedQuestion = json.data;
+
+  // Map the response back to the frontend Question interface
+  const { _id, text, answers, ...rest } = updatedQuestion;
+  return {
+    ...rest,
+    id: _id,
+    content: text,
+    options: (answers || []).map(({ _id, ...opt }: any) => opt), // Remove _id from options
+    quiz: question.quiz ?? updatedQuestion.quiz, // Preserve quiz ID
+  };
 };
 
 /**
