@@ -288,10 +288,7 @@ export class QuizService {
         document: esDocument,
         refresh: 'wait_for',
       });
-
-      console.log(`Quiz ${quizId} synced to Elasticsearch`);
     } catch (error) {
-      console.error('Lỗi đồng bộ Quiz lên Elasticsearch:', error);
       throw error;
     }
   }

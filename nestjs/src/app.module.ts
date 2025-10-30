@@ -11,6 +11,10 @@ import { SubjectModule } from './subject/subject.module';
 import { ElasticsearchModule } from './common/config/elasticsearch.module';
 import { TopicModule } from './topic/topic.module';
 import { QuizModule } from './quiz/quiz.module';
+import { QuestionModule } from './question/question.module';
+import { VideoLessonModule } from './video-lesson/video-lesson.module';
+import { ResultModule } from './result/result.module';
+import { SubmissionModule } from './submission/submission.module';
 
 
 @Module({
@@ -23,6 +27,10 @@ import { QuizModule } from './quiz/quiz.module';
     ElasticsearchModule,
     TopicModule,
     QuizModule,
+    QuestionModule,
+    VideoLessonModule,
+    ResultModule,
+    SubmissionModule,
   ],
 })
 export class AppModule implements NestModule {
@@ -48,7 +56,15 @@ export class AppModule implements NestModule {
         {path: '/quiz/create-quiz', method: RequestMethod.POST },
         {path: '/quiz/update-quiz/:_id', method: RequestMethod.PUT },
         {path: '/quiz/delete-quiz/:_id', method: RequestMethod.DELETE },
-
+        // path question
+        {path: '/question/create-question', method: RequestMethod.POST },
+        {path: '/question/update-question/:_id', method: RequestMethod.PUT },
+        {path: '/question/delete-question/:_id', method: RequestMethod.DELETE },
+        // path video
+        {path: '/video-lesson/create', method: RequestMethod.POST },
+        {path: '/video-lesson/update/:_id', method: RequestMethod.PUT },
+        {path: '/video-lesson/delete/:_id', method: RequestMethod.DELETE },
+        {path: '/video-lesson/detail/:_id', method: RequestMethod.GET },
       );
   }
 }
