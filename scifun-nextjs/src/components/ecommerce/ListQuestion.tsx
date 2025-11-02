@@ -107,7 +107,7 @@ export default function ListQuestions() {
             onChange={(e) => handleQuizChange(e.target.value)}
             className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03]"
           >
-            <option value="">Tất cả các quiz</option>
+            <option value="">Chọn một quizz</option>
             {quizzes.map((quiz) => (
               <option key={quiz.id} value={quiz.id}>
                 {quiz.title}

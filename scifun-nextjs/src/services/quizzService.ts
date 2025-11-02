@@ -12,6 +12,7 @@ export interface Quiz {
   duration: number; // Added duration field
   lastAttemptAt?: Date | string | null;
   favoriteCount: number;
+  accessTier: "PRO" | "FREE";
   createdAt?: Date | string;
   updatedAt?: Date | string;
 }
@@ -75,6 +76,7 @@ export const getQuizzes = async (
     return {
       ...rest,
       id: _id,
+      accessTier: rest.accessTier ?? "FREE",
       topic: rest.topic ?? null, // Ensure topic is null if not provided
       description: rest.description ?? null, // Ensure description is null if not provided
     };
@@ -111,6 +113,7 @@ export const getQuizById = async (id: string): Promise<Quiz> => {
     uniqueUserCount: quizData.uniqueUserCount,
     duration: quizData.duration, // Map duration
     lastAttemptAt: quizData.lastAttemptAt,
+    accessTier: quizData.accessTier ?? "FREE",
     favoriteCount: quizData.favoriteCount,
     createdAt: quizData.createdAt,
     updatedAt: quizData.updatedAt
@@ -125,6 +128,7 @@ export const addQuiz = async (quiz: {
   description: string;
   duration: number; // Added duration to input type
   topic: string;
+  accessTier?: "PRO" | "FREE";
 }): Promise<Quiz> => {
   const res = await fetch(`${BASE_URL}/create-quiz`, {
     method: "POST",
@@ -161,6 +165,7 @@ export const addQuiz = async (quiz: {
     uniqueUserCount: createdQuiz.uniqueUserCount,
     duration: createdQuiz.duration, // Map duration
     lastAttemptAt: createdQuiz.lastAttemptAt ?? null, // Ensure null if not provided
+    accessTier: createdQuiz.accessTier ?? "FREE",
     favoriteCount: createdQuiz.favoriteCount,
     createdAt: createdQuiz.createdAt,
     updatedAt: createdQuiz.updatedAt,
@@ -197,6 +202,7 @@ export const updateQuiz = async (
     uniqueUserCount: updatedQuiz.uniqueUserCount,
     duration: updatedQuiz.duration, // Map duration
     lastAttemptAt: updatedQuiz.lastAttemptAt,
+    accessTier: updatedQuiz.accessTier ?? "FREE",
     favoriteCount: updatedQuiz.favoriteCount,
     createdAt: updatedQuiz.createdAt,
     updatedAt: updatedQuiz.updatedAt,
@@ -232,6 +238,7 @@ export const deleteQuiz = async (
       topic: deletedQuiz.topic ?? null,
       uniqueUserCount: deletedQuiz.uniqueUserCount,
       duration: deletedQuiz.duration, // Map duration
+      accessTier: deletedQuiz.accessTier ?? "FREE",
       lastAttemptAt: deletedQuiz.lastAttemptAt ? new Date(deletedQuiz.lastAttemptAt) : null,
       favoriteCount: deletedQuiz.favoriteCount,
       createdAt: deletedQuiz.createdAt ? new Date(deletedQuiz.createdAt) : undefined,

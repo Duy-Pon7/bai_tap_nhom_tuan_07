@@ -5,132 +5,89 @@ import { useParams, useRouter } from "next/navigation";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import Input from "@/components/form/input/InputField";
 import TextArea from "@/components/form/input/TextArea";
-import {
-  addQuestion,
-  getQuestionById,
-  updateQuestion,
-  deleteQuestion,
-  QuestionOption,
-} from "@/services/questionService";
-import { getQuizzes, Quiz } from "@/services/quizzService";
+import { getQuizById, updateQuiz, deleteQuiz, Quiz } from "@/services/quizzService";
+import { getTopics, Topic } from "@/services/topicsService";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-export default function UpdateQuestionPage() {
+export default function UpdateQuizPage() {
   const router = useRouter();
   const params = useParams();
   const id = params?.id as string | undefined;
 
   const [formData, setFormData] = useState({
-    quiz: "",
-    content: "",
-    options: [
-      { text: "", isCorrect: false },
-      { text: "", isCorrect: false },
-    ] as QuestionOption[],
-    explanation: "",
-    type: "single-choice" as "single-choice" | "multiple-choice",
+    title: "",
+    description: "",
+    topic: "",
+    duration: 0,
+    accessTier: "FREE" as "PRO" | "FREE",
   });
 
   const [loadingSubmit, setLoadingSubmit] = useState(false);
   const [loadingDelete, setLoadingDelete] = useState(false);
   const [errors, setErrors] = useState({
-    quiz: "",
-    content: "",
-    options: "",
+    title: "",
+    description: "",
+    topic: "",
+    duration: "",
   });
 
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [topics, setTopics] = useState<Topic[]>([]);
 
-  // Fetch all quizzes for dropdown
+  // Fetch all topics for dropdown
   useEffect(() => {
-    const fetchQuizzes = async () => {
+    const fetchTopics = async () => {
       try {
-        const response = await getQuizzes(1, 1000); // Adjust limit if needed
-        setQuizzes(response.quizzes);
+        const response = await getTopics(1, 1000); // Adjust limit if needed
+        setTopics(response.topics);
       } catch (error) {
-        console.error("Error fetching quizzes:", error);
-        toast.error("❌ Lỗi khi tải danh sách quiz!");
+        console.error("Error fetching topics:", error);
+        toast.error("❌ Lỗi khi tải danh sách chủ đề!");
       }
     };
-    fetchQuizzes();
+    fetchTopics();
   }, []);
 
-  // Fetch question data if ID exists (edit mode)
+  // Fetch quiz data if ID exists (edit mode)
   useEffect(() => {
     if (!id) return;
 
-    const fetchQuestion = async () => {
+    const fetchQuiz = async () => {
       try {
         setLoadingSubmit(true);
-        const question = await getQuestionById(id);
+        const quiz = await getQuizById(id);
         setFormData({
-          quiz:
-            typeof question.quiz === "object" && question.quiz !== null
-              ? (question.quiz as any).id || (question.quiz as any)._id // Handle populated object with id or _id
-              : typeof question.quiz === "string"
-              ? question.quiz // Handle string id
-              : "", // Default value
-          content: question.content ?? "",
-          options: question.options ?? [],
-          explanation: question.explanation ?? "",
-          type: question.type ?? "single-choice",
+          title: quiz.title ?? "",
+          description: quiz.description ?? "",
+          topic: typeof quiz.topic === 'object' && quiz.topic !== null ? (quiz.topic as any).id : quiz.topic ?? "",
+          duration: quiz.duration ?? 0,
+          accessTier: quiz.accessTier ?? "FREE",
         });
       } catch (error: any) {
-        console.error("Error fetching question:", error);
-        toast.error("❌ Không thể tải dữ liệu câu hỏi.");
+        console.error("Error fetching quiz:", error);
+        toast.error("❌ Không thể tải dữ liệu quiz.");
       } finally {
         setLoadingSubmit(false);
       }
     };
 
-    fetchQuestion();
+    fetchQuiz();
   }, [id]);
 
   const handleChange = (
     field: keyof typeof formData,
-    value: string | QuestionOption[] | "single-choice" | "multiple-choice"
+    value: string | number | "PRO" | "FREE"
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (field in errors) setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 
-  const handleOptionChange = (index: number, text: string) => {
-    const newOptions = [...formData.options];
-    newOptions[index].text = text;
-    handleChange("options", newOptions);
-  };
-
-  const handleCorrectOptionChange = (index: number) => {
-    const newOptions = [...formData.options];
-    if (formData.type === "single-choice") {
-      newOptions.forEach((option, i) => {
-        option.isCorrect = i === index;
-      });
-    } else {
-      newOptions[index].isCorrect = !newOptions[index].isCorrect;
-    }
-    handleChange("options", newOptions);
-  };
-
-  const addOption = () => {
-    handleChange("options", [...formData.options, { text: "", isCorrect: false }]);
-  };
-
-  const removeOption = (index: number) => {
-    const newOptions = formData.options.filter((_, i) => i !== index);
-    handleChange("options", newOptions);
-  };
-
   const handleSubmit = async () => {
     const newErrors = {
-      quiz: formData.quiz ? "" : "Quiz là bắt buộc.",
-      content: formData.content ? "" : "Nội dung câu hỏi là bắt buộc.",
-      options:
-        formData.options.some((opt) => opt.text) &&
-        formData.options.some((opt) => opt.isCorrect)
-          ? ""
-          : "Cần ít nhất một lựa chọn và một đáp án đúng.",
+      title: formData.title ? "" : "Tiêu đề quiz là bắt buộc.",
+      description: formData.description ? "" : "Mô tả là bắt buộc.",
+      topic: formData.topic ? "" : "Chủ đề là bắt buộc.",
+      duration: formData.duration > 0 ? "" : "Thời lượng phải là một số dương.",
     };
 
     setErrors(newErrors);
@@ -140,31 +97,28 @@ export default function UpdateQuestionPage() {
       return;
     }
 
+    if (!id) {
+      toast.error("Không thể cập nhật quiz: Thiếu ID.");
+      return;
+    }
+
     try {
       setLoadingSubmit(true);
 
       const payload = {
-        quiz: formData.quiz,
-        content: formData.content,
-        options: formData.options.filter((opt) => opt.text.trim() !== ""), // Remove empty options
-        explanation: formData.explanation || null,
-        type: formData.type,
+        title: formData.title,
+        description: formData.description,
+        duration: Number(formData.duration),
+        topic: formData.topic,
+        accessTier: formData.accessTier,
       };
 
-      if (id) {
-        const updated = await updateQuestion(id, payload);
-        toast.success(`Cập nhật câu hỏi thành công!`);
-      } else {
-        // This page is for updating, so 'id' should always be present.
-        // If somehow accessed without an ID, it would be a creation scenario.
-        // For now, we'll prevent submission if no ID is found on this update page.
-        console.error("Attempted to submit update form without an ID.");
-        toast.error("Không thể cập nhật câu hỏi: Thiếu ID.");
-        return;
-      }
+      const updated = await updateQuiz(id, payload);
+      toast.success(`Cập nhật quiz thành công!`);
+
     } catch (error: any) {
       console.error("[handleSubmit] Error:", error);
-      toast.error(error.message || "Cập nhật câu hỏi thất bại!");
+      toast.error(error.message || "Cập nhật quiz thất bại!");
     } finally {
       setLoadingSubmit(false);
     }
@@ -173,17 +127,16 @@ export default function UpdateQuestionPage() {
   const handleDelete = async () => {
     if (!id) return;
 
-    const confirmDelete = window.confirm("⚠️ Bạn có chắc chắn muốn xóa câu hỏi này?");
+    const confirmDelete = window.confirm("⚠️ Bạn có chắc chắn muốn xóa quiz này?");
     if (!confirmDelete) return;
 
     try {
       setLoadingDelete(true);
-      await deleteQuestion(id);
-      toast.success(`Đã xóa câu hỏi thành công!`);
-      router.push("/admin/list-questions"); // Redirect to question list after deletion
+      await deleteQuiz(id);
+      toast.success(`Đã xóa quiz thành công!`);
     } catch (error: any) {
       console.error("[handleDelete] Error:", error);
-      toast.error(error.message || "Xóa câu hỏi thất bại!");
+      toast.error(error.message || "Xóa quiz thất bại!");
     } finally {
       setLoadingDelete(false);
     }
@@ -202,26 +155,26 @@ export default function UpdateQuestionPage() {
         style={{ zIndex: 999999 }}
       />
 
-      <PageBreadcrumb pageTitle={id ? "Cập nhật câu hỏi" : "Tạo câu hỏi"} />
+      <PageBreadcrumb pageTitle={id ? "Cập nhật Quiz" : "Tạo Quiz"} />
 
       <div className="max-w-3xl mx-auto mt-6 space-y-6">
-        {/* Chọn Quiz */}
+        {/* Chọn Chủ đề */}
         <div>
           <h3 className="text-lg font-semibold mb-2">
-            Quiz <span className="text-red-500">*</span>
+            Chủ đề <span className="text-red-500">*</span>
           </h3>
           <div className="relative">
             <select
-              value={formData.quiz}
-              onChange={(e) => handleChange("quiz", e.target.value)}
+              value={formData.topic}
+              onChange={(e) => handleChange("topic", e.target.value)}
               className={`w-full appearance-none border rounded-lg px-3 py-2 bg-white dark:bg-dark-900 ${
-                errors.quiz ? "border-red-500" : "border-gray-300"
+                errors.topic ? "border-red-500" : "border-gray-300"
               }`}
             >
-              <option value="">-- Chọn Quiz --</option>
-              {quizzes.map((quiz) => (
-                <option key={quiz.id} value={quiz.id}>
-                  {quiz.title}
+              <option value="">-- Chọn chủ đề --</option>
+              {topics.map((topic) => (
+                <option key={topic.id} value={topic.id!}>
+                  {topic.name}
                 </option>
               ))}
             </select>
@@ -240,107 +193,89 @@ export default function UpdateQuestionPage() {
               </svg>
             </span>
           </div>
-          {errors.quiz && (
-            <p className="text-sm text-red-600 mt-1">{errors.quiz}</p>
+          {errors.topic && (
+            <p className="text-sm text-red-600 mt-1">{errors.topic}</p>
           )}
         </div>
 
-        {/* Nội dung câu hỏi */}
+        {/* Tiêu đề Quiz */}
         <div>
           <h3 className="text-lg font-semibold mb-2">
-            Nội dung câu hỏi <span className="text-red-500">*</span>
+            Tiêu đề Quiz <span className="text-red-500">*</span>
+          </h3>
+          <Input
+            type="text"
+            value={formData.title}
+            placeholder="Nhập tiêu đề quiz"
+            maxLength={100}
+            onChange={(e) => handleChange("title", e.target.value)}
+            error={!!errors.title}
+            hint={errors.title}
+          />
+        </div>
+
+        {/* Mô tả */}
+        <div>
+          <h3 className="text-lg font-semibold mb-2">
+            Mô tả <span className="text-red-500">*</span>
           </h3>
           <TextArea
             rows={6}
-            placeholder="Nhập nội dung câu hỏi..."
-            value={formData.content}
-            onChange={(value: string) => handleChange("content", value)}
-            error={!!errors.content}
-            hint={errors.content}
+            placeholder="Nhập mô tả về quiz"
+            value={formData.description}
+            onChange={(value: string) => handleChange("description", value)}
+            error={!!errors.description}
+            hint={errors.description}
           />
         </div>
 
-        {/* Loại câu hỏi */}
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Loại câu hỏi</h3>
-          <div className="flex gap-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="questionType"
-                value="single-choice"
-                checked={formData.type === "single-choice"}
-                onChange={() => handleChange("type", "single-choice")}
-                className="form-radio h-4 w-4 text-blue-600"
-              />
-              <span>Một đáp án</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="questionType"
-                value="multiple-choice"
-                checked={formData.type === "multiple-choice"}
-                onChange={() => handleChange("type", "multiple-choice")}
-                className="form-radio h-4 w-4 text-blue-600"
-              />
-              <span>Nhiều đáp án</span>
-            </label>
-          </div>
-        </div>
-
-        {/* Các lựa chọn */}
+        {/* Thời lượng */}
         <div>
           <h3 className="text-lg font-semibold mb-2">
-            Các lựa chọn <span className="text-red-500">*</span>
+            Thời lượng (phút) <span className="text-red-500">*</span>
           </h3>
-          <div className="space-y-3">
-            {formData.options.map((option, index) => (
-              <div key={index} className="flex items-center gap-2">
-                <input
-                  type={formData.type === "single-choice" ? "radio" : "checkbox"}
-                  name="correctOption"
-                  checked={option.isCorrect}
-                  onChange={() => handleCorrectOptionChange(index)}
-                  className="form-checkbox h-5 w-5 text-blue-600 rounded"
-                />
-                <Input
-                  type="text"
-                  value={option.text}
-                  placeholder={`Lựa chọn ${index + 1}`}
-                  onChange={(e) => handleOptionChange(index, e.target.value)}
-                  className="flex-grow"
-                />
-                <button
-                  onClick={() => removeOption(index)}
-                  className="text-red-500 hover:text-red-700 p-2"
-                  disabled={formData.options.length <= 2}
-                >
-                  Xóa
-                </button>
-              </div>
-            ))}
-          </div>
-          <button
-            onClick={addOption}
-            className="mt-3 px-4 py-2 text-sm bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300"
-          >
-            Thêm lựa chọn
-          </button>
-          {errors.options && (
-            <p className="text-sm text-red-600 mt-1">{errors.options}</p>
-          )}
+          <Input
+            type="number"
+            value={formData.duration}
+            placeholder="Nhập thời lượng quiz (phút)"
+            min={1}
+            onChange={(e) =>
+              handleChange("duration", parseInt(e.target.value, 10) || 0)
+            }
+            error={!!errors.duration}
+            hint={errors.duration}
+          />
         </div>
 
-        {/* Giải thích */}
+        {/* Loại Quiz (Access Tier) */}
         <div>
-          <h3 className="text-lg font-semibold mb-2">Giải thích (Tùy chọn)</h3>
-          <TextArea
-            rows={4}
-            placeholder="Nhập giải thích cho đáp án đúng..."
-            value={formData.explanation}
-            onChange={(value: string) => handleChange("explanation", value)}
-          />
+          <h3 className="text-lg font-semibold mb-2">
+            Loại Quiz <span className="text-red-500">*</span>
+          </h3>
+          <div className="flex items-center space-x-6">
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name="accessTier"
+                value="FREE"
+                checked={formData.accessTier === "FREE"}
+                onChange={(e) => handleChange("accessTier", e.target.value as "PRO" | "FREE")}
+                className="form-radio h-5 w-5 text-blue-600"
+              />
+              <span className="ml-2 text-gray-700 dark:text-gray-300">Miễn phí (FREE)</span>
+            </label>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name="accessTier"
+                value="PRO"
+                checked={formData.accessTier === "PRO"}
+                onChange={(e) => handleChange("accessTier", e.target.value as "PRO" | "FREE")}
+                className="form-radio h-5 w-5 text-blue-600"
+              />
+              <span className="ml-2 text-gray-700 dark:text-gray-300">Chuyên nghiệp (PRO)</span>
+            </label>
+          </div>
         </div>
 
         {/* Buttons */}
@@ -350,7 +285,7 @@ export default function UpdateQuestionPage() {
             disabled={loadingSubmit}
             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {loadingSubmit ? "Đang cập nhật..." : "Cập nhật câu hỏi"}
+            {loadingSubmit ? "Đang cập nhật..." : "Cập nhật Quiz"}
           </button>
 
           {id && (
@@ -359,7 +294,7 @@ export default function UpdateQuestionPage() {
               disabled={loadingDelete}
               className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {loadingDelete ? "Đang xóa..." : "Xóa câu hỏi"}
+              {loadingDelete ? "Đang xóa..." : "Xóa Quiz"}
             </button>
           )}
         </div>

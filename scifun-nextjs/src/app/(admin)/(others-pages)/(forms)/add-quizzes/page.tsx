@@ -15,6 +15,7 @@ export default function CreateQuizPage() {
     description: "",
     topic: "",
     duration: 0,
+    accessTier: "FREE" as "PRO" | "FREE",
   });
 
   const [loading, setLoading] = useState(false);
@@ -47,7 +48,7 @@ export default function CreateQuizPage() {
 
   const handleChange = (
     field: keyof typeof formData,
-    value: string | number
+    value: string | number | "PRO" | "FREE"
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (field in errors) setErrors((prev) => ({ ...prev, [field]: "" }));
@@ -77,15 +78,18 @@ export default function CreateQuizPage() {
         description: formData.description,
         duration: Number(formData.duration),
         topic: formData.topic,
+        accessTier: formData.accessTier,
       };
 
       const created = await addQuiz(payload);
 
       toast.success(`✅ Đã tạo thành công quiz: ${created.title}`);
-      
+
       // Reset form sau 0.5s
       setTimeout(() => {
-        setFormData({ title: "", description: "", topic: "", duration: 0 });
+        setFormData({
+          title: "", description: "", topic: "", duration: 0, accessTier: "FREE"
+        });
       }, 500);
     } catch (error: any) {
       console.error("[handleSubmit] Error creating quiz:", error);
@@ -197,6 +201,37 @@ export default function CreateQuizPage() {
             error={!!errors.duration}
             hint={errors.duration}
           />
+        </div>
+
+        {/* Loại Quiz (Access Tier) */}
+        <div>
+          <h3 className="text-lg font-semibold mb-2">
+            Loại Quiz <span className="text-red-500">*</span>
+          </h3>
+          <div className="flex items-center space-x-6">
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name="accessTier"
+                value="FREE"
+                checked={formData.accessTier === "FREE"}
+                onChange={(e) => handleChange("accessTier", e.target.value as "PRO" | "FREE")}
+                className="form-radio h-5 w-5 text-blue-600"
+              />
+              <span className="ml-2 text-gray-700 dark:text-gray-300">Miễn phí (FREE)</span>
+            </label>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name="accessTier"
+                value="PRO"
+                checked={formData.accessTier === "PRO"}
+                onChange={(e) => handleChange("accessTier", e.target.value as "PRO" | "FREE")}
+                className="form-radio h-5 w-5 text-blue-600"
+              />
+              <span className="ml-2 text-gray-700 dark:text-gray-300">Chuyên nghiệp (PRO)</span>
+            </label>
+          </div>
         </div>
 
         {/* Nút tạo */}
