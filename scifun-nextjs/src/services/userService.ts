@@ -9,7 +9,7 @@ export interface UserAPIResponse {
   users: User[];
 }
 
-const BASE_URL = "http://localhost:5000/api/v1/user";
+const BASE_URL = "https://java-app-9trd.onrender.com/api/v1/user";
 
 /**
  * Helper để lấy headers kèm token
@@ -95,7 +95,7 @@ export const addUser = async (
  * Endpoint: DELETE /api/v1/user/delete-user/:id
  */
 export const deleteUserById = async (id: string): Promise<{ message: string }> => {
-  const res = await fetch(`http://localhost:5000/api/v1/delete-user/${id}`, {
+  const res = await fetch(`https://java-app-9trd.onrender.com/api/v1/delete-user/${id}`, {
     method: "DELETE",
     headers: getAuthHeaders(),
   });

@@ -64,6 +64,19 @@ git clone https://github.com/TailAdmin/free-nextjs-admin-dashboard.git
     yarn dev
     ```
 
+## Admin Chat (custom page)
+
+A built-in admin chat page has been added at `GET /chat` for connecting to your backend WebSocket/STOMP endpoint.
+
+- Requirements: a valid admin JWT (paste into the token field) and correct API / WS URLs.
+- STOMP library: this page uses `@stomp/stompjs` (already added to `package.json`).
+- How to use:
+  1. Open http://localhost:3000/chat
+  2. Paste your admin JWT into the "JWT Token (ADMIN)" field
+  3. Click **Connect WS** and **Load danh sách room** to list rooms
+
+If you prefer to keep using a CDN, remove `@stomp/stompjs` and revert the client logic, but using the local package is recommended for reliability.
+
 ## Components
 
 TailAdmin is a pre-designed starting point for building a web-based dashboard using Next.js and Tailwind CSS. The template includes:

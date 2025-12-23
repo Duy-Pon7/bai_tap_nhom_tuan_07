@@ -18,7 +18,7 @@ export interface SubjectAPIResponse {
   subjects: Subject[];
 }
 
-const BASE_URL = "http://localhost:5000/api/v1/subject";
+const BASE_URL = "https://java-app-9trd.onrender.com/api/v1/subject";
 
 /**
  * Helper để lấy headers kèm token

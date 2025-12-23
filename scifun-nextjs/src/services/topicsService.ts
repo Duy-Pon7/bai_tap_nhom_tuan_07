@@ -18,7 +18,7 @@ export interface TopicAPIResponse {
 }
 
 // ✅ Khai báo BASE_URL Ở TRÊN CÙNG
-const BASE_URL = "http://localhost:5000/api/v1/topic";
+const BASE_URL = "https://java-app-9trd.onrender.com/api/v1/topic";
 
 /**
  * Helper để lấy headers kèm token

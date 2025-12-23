@@ -18,6 +18,7 @@ import {
   TableIcon,
   UserCircleIcon,
   VideoIcon,
+  ChatIcon,
   DocsIcon, TaskIcon,
 } from "../icons/index";
 import SidebarWidget from "./SidebarWidget";
@@ -79,6 +80,17 @@ const navItems: NavItem[] = [
     name: "Videos",
     icon: <VideoIcon  />,
     subItems: [{ name: "List Videos", path: "/list-videos", pro: false }, { name: "Add Video", path: "/add-video", pro: false }],
+  },
+  {    name: "Chat",
+    icon: <ChatIcon />,
+    subItems: [{ name: "Chat Support", path: "/chat", pro: false }],
+  },
+  {    name: "Plans",
+    icon: <TableIcon />,
+    subItems: [
+      { name: "List Plans", path: "/plans", pro: false },
+      { name: "Add Plan", path: "/add-plan", pro: false },
+    ],
   },
   // {
   //   name: "Tables",

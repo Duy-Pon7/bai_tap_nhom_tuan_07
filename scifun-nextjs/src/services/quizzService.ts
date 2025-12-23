@@ -25,7 +25,7 @@ export interface QuizAPIResponse {
   quizzes: Quiz[];
 }
 
-const BASE_URL = "http://localhost:5000/api/v1/quiz";
+const BASE_URL = "https://java-app-9trd.onrender.com/api/v1/quiz";
 
 /**
  * Helper để lấy headers kèm token

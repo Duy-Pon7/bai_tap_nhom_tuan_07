@@ -19,7 +19,7 @@ export interface VideoLessonAPIResponse {
   data: VideoLesson[];
 }
 
-const BASE_URL = "http://localhost:5000/api/v1/video-lesson";
+const BASE_URL = "https://java-app-9trd.onrender.com/api/v1/video-lesson";
 
 /**
  * Helper để lấy headers kèm token

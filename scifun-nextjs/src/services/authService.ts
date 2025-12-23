@@ -1,7 +1,9 @@
 import Cookies from "js-cookie";
 import { deleteUserById } from "./userService";
 
-const BASE_URL = "http://localhost:5000/api/v1/user";
+// Use NEXT_PUBLIC_API_BASE_URL to override the API host in different environments.
+// Expected value should include the path up to `/user` (e.g. `https://api.example.com/api/v1/user`).
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://java-app-9trd.onrender.com/api/v1/user";
 
 export interface User {
   id: string;
@@ -12,7 +14,13 @@ export interface User {
   isVerified: boolean;
   sex?: number;
   dob?: string;
-}
+  subscription?: {
+    status: string;
+    tier?: string;
+    currentPeriodEnd?: string;
+    provider?: string;
+  };
+} 
 
 export interface LoginResponse {
   status: number;
@@ -63,7 +71,7 @@ if (!res.ok) {
 
   // Map dữ liệu trả về
   const user: User = {
-    id: json.data._id,
+    id: json.data.id || json.data._id,
     email: json.data.email,
     fullname: json.data.fullname,
     avatar: json.data.avatar,
@@ -71,6 +79,7 @@ if (!res.ok) {
     isVerified: json.data.isVerified,
     sex: json.data.sex,
     dob: json.data.dob,
+    subscription: json.data.subscription,
   };
 
   // Kiểm tra quyền ADMIN
