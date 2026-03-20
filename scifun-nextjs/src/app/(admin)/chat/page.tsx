@@ -5,327 +5,409 @@ import { Client, Frame } from "@stomp/stompjs";
 import { getToken, getCurrentUser } from "@/services/authService";
 
 export default function AdminChatPage() {
-  // UI state
-  const [apiBase, setApiBase] = useState("https://java-app-9trd.onrender.com");
-  const [wsUrl, setWsUrl] = useState("wss://java-app-9trd.onrender.com/ws");
-  const [token, setToken] = useState<string | null>(null);
+  const API_BASE = "https://java-app-9trd.onrender.com";
+  const WS_URL   = "wss://java-app-9trd.onrender.com/ws";
 
-  const [status, setStatus] = useState("DISCONNECTED");
-  const [statusOk, setStatusOk] = useState<boolean | null>(null);
-  const [logs, setLogs] = useState<string>("");
-
-  const [rooms, setRooms] = useState<any[]>([]);
-  const [activeRoom, setActiveRoom] = useState<string | null>(null);
-  const [messages, setMessages] = useState<any[]>([]);
-  const [content, setContent] = useState("");
-
+  const [token, setToken]           = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any | null>(null);
+  const [status, setStatus]         = useState("DISCONNECTED");
+  const [statusOk, setStatusOk]     = useState<boolean | null>(null);
+  const [logs, setLogs]             = useState("");
 
-  // Refs for WS/STOMP objects
-  const stompRef = useRef<any>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  const subRef = useRef<any>(null);
-  const adminIdRef = useRef<string | null>(null);
+  const [rooms, setRooms]           = useState<any[]>([]);
+  const [activeRoom, setActiveRoom] = useState<string | null>(null);
+  const [messages, setMessages]     = useState<any[]>([]);
+  const [content, setContent]       = useState("");
 
-  // helpers
-  const log = (m: string) => {
+  // unread: { [roomId]: count }
+  const [unread, setUnread]         = useState<Record<string, number>>({});
+
+  const stompRef    = useRef<any>(null);
+  const subRef      = useRef<any>(null);
+  const roomSubsRef = useRef<Record<string, any>>({});  // subscribe tất cả room
+  const adminIdRef  = useRef<string | null>(null);
+  const activeRoomRef = useRef<string | null>(null);    // ref để dùng trong closure WS
+  const chatBoxRef  = useRef<HTMLDivElement>(null);
+  const tokenRef    = useRef<string | null>(null);
+
+  // ─── Helpers ────────────────────────────────────────────────────────
+  const addLog = (m: string) => {
     const t = new Date().toLocaleTimeString();
-    setLogs((s) => s + `[${t}] ${m}\n`);
-    // also console
-    // eslint-disable-next-line no-console
-    console.log(m);
+    setLogs(s => s + `[${t}] ${m}\n`);
   };
 
-  const clearChat = () => setMessages([]);
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      if (chatBoxRef.current)
+        chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
+    }, 50);
+  };
 
-  const appendMessage = (m: any) => {
-    const isMe =
-      (adminIdRef.current && m.senderId === adminIdRef.current) ||
-      (typeof (window as any).myUserId !== "undefined" && (window as any).myUserId && m.senderId === (window as any).myUserId);
-
-    let displayRole = m.senderRole;
-    if (!displayRole) displayRole = isMe ? "ADMIN" : "USER";
-
-    const msg = {
+  const buildMessage = (m: any) => {
+    const isMe = !!(adminIdRef.current && m.senderId === adminIdRef.current);
+    return {
       ...m,
       isMe,
-      displayRole,
+      displayRole: m.senderRole || (isMe ? "ADMIN" : "USER"),
     };
-
-    setMessages((arr) => [...arr, msg]);
   };
 
-  // STOMP connect/disconnect (using @stomp/stompjs Client)
+  // ─── Unread ──────────────────────────────────────────────────────────
+  const markUnread = (roomId: string) => {
+    setUnread(prev => ({ ...prev, [roomId]: (prev[roomId] || 0) + 1 }));
+  };
+
+  const clearUnread = (roomId: string) => {
+    setUnread(prev => { const n = { ...prev }; delete n[roomId]; return n; });
+  };
+
+  // ─── Connect ─────────────────────────────────────────────────────────
   const connectWs = () => {
-    if (!token) return alert("Thiếu JWT");
+    const t = tokenRef.current;
+    if (!t) return alert("Không có token — hãy đăng nhập trước");
+
+    // Check role từ JWT
+    try {
+      const payload = JSON.parse(atob(t.split(".")[1]));
+      if (payload.role !== "ADMIN") {
+        alert("❌ Tài khoản này không phải ADMIN. Truy cập bị từ chối.");
+        return;
+      }
+      if (!adminIdRef.current && payload.userId) {
+        adminIdRef.current = payload.userId;
+      }
+    } catch(e) {
+      addLog("⚠️ Không decode được JWT");
+    }
 
     disconnect(false);
-    setStatus("CONNECTING...");
+    setStatus("CONNECTING…");
     setStatusOk(null);
 
-    try {
-      const client = new Client({
-        brokerURL: wsUrl,
-        connectHeaders: { Authorization: "Bearer " + token },
-        debug: (msg: string) => log(msg),
-        reconnectDelay: 5000,
-        onConnect: (frame: Frame) => {
-          setStatus("CONNECTED");
-          setStatusOk(true);
-          log("✅ STOMP CONNECTED");
-          log(JSON.stringify(frame?.headers || {}));
+    const client = new Client({
+      brokerURL: WS_URL,
+      connectHeaders: { Authorization: "Bearer " + t },
+      reconnectDelay: 0,
+      onConnect: (frame: Frame) => {
+        setStatus("CONNECTED");
+        setStatusOk(true);
+        addLog("✅ STOMP connected — ADMIN verified");
 
-          const userName = frame?.headers?.["user-name"];
-          if (userName) {
-            adminIdRef.current = ("" + userName).trim();
-            log("ℹ️ adminId (from frame.headers) = " + adminIdRef.current);
-          } else {
-            log("⚠️ Không thấy user-name trong STOMP CONNECTED headers");
-          }
+        const userName = frame?.headers?.["user-name"];
+        if (userName) {
+          adminIdRef.current = ("" + userName).trim();
+          addLog("ℹ️ adminId = " + adminIdRef.current);
+        }
 
-          stompRef.current = client;
-        },
-        onStompError: (frame: any) => {
-          setStatus("STOMP ERROR");
-          setStatusOk(false);
-          log("❌ STOMP ERROR: " + (frame && frame.body ? frame.body : JSON.stringify(frame)));
-        },
-        onWebSocketError: (ev: any) => {
-          log("❌ WS ERROR");
-          setStatus("WS ERROR");
-          setStatusOk(false);
-        },
-        onWebSocketClose: (ev: any) => {
-          log("❌ WS CLOSED");
-          setStatus("WS CLOSED");
-          setStatusOk(false);
-        },
-      });
+        stompRef.current = client;
+      },
+      onStompError: (frame: any) => {
+        setStatus("STOMP ERROR"); setStatusOk(false);
+        addLog("❌ STOMP ERROR: " + (frame?.body || JSON.stringify(frame)));
+      },
+      onWebSocketError: () => { setStatus("WS ERROR"); setStatusOk(false); addLog("❌ WS ERROR"); },
+      onWebSocketClose: () => { setStatus("WS CLOSED"); setStatusOk(false); addLog("❌ WS CLOSED"); },
+    });
 
-      client.activate();
-      // store ws ref for optional low-level access
-      wsRef.current = null; // no native ws instance kept here
-    } catch (e) {
-      log("❌ CONNECT EXCEPTION: " + e);
-    }
+    client.activate();
   };
 
   const disconnect = async (hard = true) => {
-    try {
-      if (subRef.current) {
-        try { subRef.current.unsubscribe(); } catch(e) {}
-        subRef.current = null;
-      }
-      if (stompRef.current) {
-        try {
-          await stompRef.current.deactivate();
-          log("✅ STOMP DISCONNECTED");
-        } catch(e) {
-          log("❌ Error while deactivating: " + e);
-        }
-      }
-    } catch (e) {
-      // ignore
-    } finally {
-      wsRef.current = null;
-      stompRef.current = null;
-      if (hard) {
-        setStatus("DISCONNECTED");
-        setStatusOk(null);
-      }
-    }
+    // Unsubscribe tất cả room
+    Object.values(roomSubsRef.current).forEach(s => { try { s.unsubscribe(); } catch(e) {} });
+    roomSubsRef.current = {};
+    try { subRef.current?.unsubscribe(); subRef.current = null; } catch(e) {}
+    try { await stompRef.current?.deactivate(); } catch(e) {}
+    stompRef.current = null;
+    if (hard) { setStatus("DISCONNECTED"); setStatusOk(null); }
   };
 
-  // fetch rooms
+  // ─── Load rooms ───────────────────────────────────────────────────────
   const loadRooms = async () => {
-    if (!token) return alert("Thiếu JWT");
-    const url = `${apiBase.replace(/\/+$/, "")}/api/chat/conversations`;
-    log("➡️ loadRooms " + url);
-
+    const t = tokenRef.current;
+    if (!t) return;
     try {
-      const res = await fetch(url, { headers: { Authorization: "Bearer " + token, Accept: "application/json" } });
-      const text = await res.text();
-      log("⬅️ status=" + res.status);
-      log("⬅️ body=" + text);
-      if (!res.ok) return;
-      let json;
-      try { json = JSON.parse(text); } catch { log("❌ Response không phải JSON"); return; }
-      const rooms = Array.isArray(json) ? json : (json.items || json.data?.items || []);
-      setRooms(rooms);
-      log(`✅ rooms loaded: ${rooms.length}`);
-    } catch (e: any) {
-      log("❌ FETCH ERROR (không gọi được API): " + e);
-    }
-  };
-
-  const openRoom = async (id: string) => {
-    if (!stompRef.current || !stompRef.current.connected) {
-      alert("Admin chưa connect WS. Bấm Connect WS trước.");
-      return;
-    }
-
-    setActiveRoom(id);
-    clearChat();
-    await loadMessages(id);
-    switchSubscription(id);
-  };
-
-  const loadMessages = async (conversationId: string) => {
-    const t = token;
-    const url = `${apiBase.replace(/\/+$/, "")}/api/chat/${conversationId}/messages?page=1&limit=50`;
-    log("➡️ loadMessages " + url);
-    try {
-      const res = await fetch(url, { headers: { Authorization: "Bearer " + t, Accept: "application/json" } });
-      const text = await res.text();
-      log("⬅️ status=" + res.status);
-      log("⬅️ body=" + text);
-      if (!res.ok) return;
-      let payload;
-      try { payload = JSON.parse(text); } catch { log("❌ Response messages không phải JSON"); return; }
-      const items = Array.isArray(payload) ? payload : (payload.items || payload.data?.items || payload.content || []);
-      (items || []).forEach(appendMessage);
-      log(`✅ loaded ${(items||[]).length} messages`);
-    } catch (e: any) {
-      log("❌ FETCH ERROR (messages): " + e);
-    }
-  };
-
-  const switchSubscription = (conversationId: string) => {
-    try {
-      if (subRef.current) { try { subRef.current.unsubscribe(); } catch (e) {} subRef.current = null; }
-    } catch (e) {}
-
-    const dest = `/topic/chat/${conversationId}`;
-    try {
-      if (!stompRef.current) throw new Error("No STOMP client");
-      subRef.current = stompRef.current.subscribe(dest, (msg: any) => {
-        let body;
-        try { body = JSON.parse(msg.body); } catch { log("❌ WS msg không phải JSON: " + msg.body); return; }
-        if (body.conversationId && body.conversationId !== conversationId) return;
-        appendMessage(body);
+      const res  = await fetch(`${API_BASE}/api/chat/conversations`, {
+        headers: { Authorization: "Bearer " + t }
       });
-      log("✅ Subscribed " + dest);
-    } catch (e: any) {
-      log("❌ SUBSCRIBE ERROR: " + e);
+      const json = await res.json();
+      const all  = Array.isArray(json) ? json : (json.items || json.data?.items || []);
+      // Chỉ lấy HUMAN rooms
+      const humanRooms = all.filter((r: any) => !r.type || r.type === "HUMAN");
+      setRooms(humanRooms);
+      addLog(`✅ Loaded ${humanRooms.length} HUMAN rooms`);
+
+      // Subscribe tất cả room để nhận notify
+      humanRooms.forEach((r: any) => subscribeRoomNotify(r.id || r._id));
+    } catch(e: any) {
+      addLog("❌ loadRooms: " + e);
     }
   };
 
+  // Subscribe room để nhận notify kể cả khi chưa mở
+  const subscribeRoomNotify = (roomId: string) => {
+    if (!stompRef.current?.connected) return;
+    if (roomSubsRef.current[roomId]) return; // đã subscribe
+
+    roomSubsRef.current[roomId] = stompRef.current.subscribe(
+      `/topic/chat/${roomId}`,
+      (msg: any) => {
+        try {
+          const m = JSON.parse(msg.body);
+          if (adminIdRef.current && m.senderId === adminIdRef.current) return;
+
+          if (activeRoomRef.current === roomId) {
+            // Room đang mở → render vào chat
+            setMessages(arr => [...arr, buildMessage(m)]);
+            scrollToBottom();
+          } else {
+            // Room khác → đánh dấu unread
+            markUnread(roomId);
+          }
+        } catch(e) {}
+      }
+    );
+  };
+
+  // ─── Open room ────────────────────────────────────────────────────────
+  const openRoom = async (id: string) => {
+    if (!stompRef.current?.connected) return alert("Chưa connect WS");
+    setActiveRoom(id);
+    activeRoomRef.current = id;
+    clearUnread(id);
+    setMessages([]);
+    await loadMessages(id);
+  };
+
+  // ─── Load messages ────────────────────────────────────────────────────
+  const loadMessages = async (conversationId: string) => {
+    const t = tokenRef.current;
+    try {
+      const res  = await fetch(
+        `${API_BASE}/api/chat/${conversationId}/messages?page=1&limit=50`,
+        { headers: { Authorization: "Bearer " + t } }
+      );
+      const raw  = await res.json();
+      const items = Array.isArray(raw) ? raw : (raw.items || raw.data?.items || raw.content || []);
+      setMessages(items.map(buildMessage));
+      addLog(`✅ Loaded ${items.length} messages`);
+      scrollToBottom();
+    } catch(e: any) {
+      addLog("❌ loadMessages: " + e);
+    }
+  };
+
+  // ─── Send ─────────────────────────────────────────────────────────────
   const sendMsg = () => {
-    if (!stompRef.current) return alert("Chưa connect WS");
+    if (!stompRef.current?.connected) return alert("Chưa connect WS");
     if (!activeRoom) return alert("Chưa chọn room");
     const c = content.trim();
     if (!c) return;
-    const dest = `/app/chat/${activeRoom}/send`;
-    try {
-      stompRef.current.publish({ destination: dest, body: JSON.stringify({ content: c }), headers: { "content-type": "application/json" } });
-      setContent("");
-    } catch(e:any) {
-      log("❌ SEND ERROR: " + e);
-    }
+
+    // Optimistic
+    setMessages(arr => [...arr, buildMessage({
+      senderId: adminIdRef.current,
+      senderRole: "ADMIN",
+      content: c,
+      createdAt: new Date(),
+    })]);
+    setContent("");
+    scrollToBottom();
+
+    stompRef.current.publish({
+      destination: `/app/chat/${activeRoom}/send`,
+      body: JSON.stringify({ content: c }),
+      headers: { "content-type": "application/json" },
+    });
   };
 
-  const refreshCurrent = async () => {
-    if (!activeRoom) return alert("Chưa chọn room");
-    clearChat();
-    await loadMessages(activeRoom);
-  };
-
-  // load token & current user automatically from auth
+  // ─── Init ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const t = getToken();
+    tokenRef.current = t;
     setToken(t);
-    try {
-      const u = getCurrentUser();
-      setCurrentUser(u);
-    } catch (e) {
-      setCurrentUser(null);
-    }
-
-    // cleanup on unmount
+    try { setCurrentUser(getCurrentUser()); } catch(e) { setCurrentUser(null); }
     return () => { disconnect(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Sync activeRoom vào ref để dùng trong WS closure
+  useEffect(() => { activeRoomRef.current = activeRoom; }, [activeRoom]);
+
+  // ─── UI ───────────────────────────────────────────────────────────────
+  const statusColor = statusOk
+    ? "bg-green-100 text-green-800"
+    : statusOk === false
+    ? "bg-red-100 text-red-800"
+    : "bg-gray-100 text-gray-600";
+
   return (
-    <div className="w-full overflow-x-hidden">
+    <div className="w-full overflow-x-hidden p-4">
 
-      <h2 className="text-xl font-semibold flex items-center gap-3">
-        Chat Support (ADMIN)
-        <span className={`px-3 py-1 rounded-full text-sm ${statusOk ? "bg-green-100 text-green-800" : (statusOk===false?"bg-red-100 text-red-800":"bg-gray-100 text-gray-800")}`}>{status}</span>
-      </h2>
-
-      <div className="box mt-4 p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
-        <label className="block text-sm font-medium text-gray-700">API Base URL</label>
-        <input className="mt-2 mb-2 p-2 border rounded w-full" value={apiBase} onChange={(e)=>setApiBase(e.target.value)} />
-
-        <label className="block text-sm font-medium text-gray-700">WS URL</label>
-        <input className="mt-2 mb-2 p-2 border rounded w-full" value={wsUrl} onChange={(e)=>setWsUrl(e.target.value)} />
-
-        <div className="flex items-center gap-4">
-          <div>
-            <div className="text-sm text-gray-700">Authenticated:</div>
-            <div className="text-sm font-medium">{currentUser ? `${currentUser.fullname || currentUser.email || currentUser.id}` : (token?"(token present)":"(not authenticated)")}</div>
-          </div>
-
-          <div className="ml-auto flex gap-3">
-            <button className="px-4 py-2 bg-blue-600 text-white rounded" onClick={connectWs}>Connect WS</button>
-            <button className="px-4 py-2 bg-gray-200 rounded" onClick={()=>disconnect(true)}>Disconnect</button>
-          </div>
-        </div>
-
-        <div className="flex gap-3 mt-3">
-          <button className="px-4 py-2 bg-gray-100 rounded" onClick={loadRooms}>Load danh sách room</button>
-          <button className="px-4 py-2 bg-gray-100 rounded" onClick={refreshCurrent}>Reload room hiện tại</button>
-        </div>
-
-        <div className="text-sm text-gray-600 mt-2">Room đang chọn: <b>{activeRoom || "(chưa chọn)"}</b> &nbsp;|&nbsp; adminId (frame): <b>{adminIdRef.current || "(chưa rõ)"}</b></div>
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-4">
+        <h2 className="text-xl font-semibold">⚙ Chat Support</h2>
+        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColor}`}>{status}</span>
+        <span className="ml-auto text-sm text-gray-400 font-medium">ADMIN PANEL</span>
       </div>
 
-      <div className="grid grid-cols-12 gap-4 mt-4">
+      {/* Config card */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Đăng nhập với</div>
+            <div className="text-sm font-medium mt-1">
+              {currentUser
+                ? `${currentUser.fullname || currentUser.email || currentUser.id}`
+                : token ? "(token present)" : "⚠️ Chưa đăng nhập"}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition"
+              onClick={connectWs}
+            >🔌 Connect WS</button>
+            <button
+              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-semibold transition"
+              onClick={() => disconnect(true)}
+            >Disconnect</button>
+          </div>
+        </div>
+
+        <div className="flex gap-2 mt-3">
+          <button
+            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-semibold transition"
+            onClick={loadRooms}
+          >📋 Load rooms</button>
+          <button
+            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-semibold transition"
+            onClick={() => activeRoom && loadMessages(activeRoom)}
+          >🔄 Reload room hiện tại</button>
+        </div>
+
+        <div className="text-xs text-gray-500 mt-2 font-mono">
+          Room: <b className="text-blue-600">{activeRoom ? activeRoom.slice(0,16) + "…" : "(chưa chọn)"}</b>
+          &nbsp;|&nbsp; AdminId: <b className="text-blue-600">{adminIdRef.current || "(chưa rõ)"}</b>
+        </div>
+      </div>
+
+      {/* Grid */}
+      <div className="grid grid-cols-12 gap-4">
+
+        {/* Room list */}
         <div className="col-span-4">
-          <div className="box p-4 bg-white border rounded">
-            <h3 className="text-lg font-medium">Danh sách room / user</h3>
-            <div className="text-sm text-gray-500">Click một room để mở chat</div>
-            <div className="mt-3 max-h-[520px] overflow-y-auto border rounded">
-              {rooms.length===0 ? <div className="p-3 text-sm">(Không có room nào)</div> : rooms.map(r => {
-                const id = r.id || r._id;
-                const status = (r.status || "").toUpperCase();
-                const pillClass = status === "OPEN" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800";
-                return (
-                  <div key={id} className={`p-3 border-b last:border-b-0 cursor-pointer break-words ${activeRoom===id?"bg-blue-50 border-l-4 border-blue-600":"hover:bg-gray-50"}`} onClick={()=>openRoom(id)}>
-                    <div><b>{r.userId||"(no userId)"}</b> <span className={`px-2 py-0.5 rounded text-xs ${pillClass}`}>{status||"UNKNOWN"}</span></div>
-                    <div className="text-xs text-gray-500 break-all">conversationId: {id}</div>
-                    <div className="text-xs text-gray-500">updatedAt: {r.updatedAt ? new Date(r.updatedAt).toLocaleString() : ""}</div>
-                  </div>
-                );
-              })}
+          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+              Danh sách room HUMAN
+            </h3>
+            <div className="max-h-[520px] overflow-y-auto border border-gray-100 rounded-lg">
+              {rooms.length === 0
+                ? <div className="p-3 text-sm text-gray-400">(Chưa load)</div>
+                : rooms.map(r => {
+                    const id  = r.id || r._id;
+                    const st  = (r.status || "").toUpperCase();
+                    const cnt = unread[id] || 0;
+                    const isActive = activeRoom === id;
+                    const hasUnread = cnt > 0;
+
+                    return (
+                      <div
+                        key={id}
+                        onClick={() => openRoom(id)}
+                        className={`p-3 border-b last:border-b-0 cursor-pointer transition
+                          ${isActive
+                            ? "bg-blue-50 border-l-4 border-blue-600"
+                            : hasUnread
+                            ? "bg-red-50 border-l-4 border-red-500"
+                            : "hover:bg-gray-50"
+                          }`}
+                      >
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className={`font-semibold text-sm ${hasUnread && !isActive ? "text-red-600" : ""}`}>
+                            {r.userId || "(no userId)"}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded text-xs font-bold
+                            ${st === "OPEN" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                            {st}
+                          </span>
+                          {/* Unread badge */}
+                          {hasUnread && !isActive && (
+                            <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                              {cnt}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-400 font-mono mt-1 break-all">id: {id}</div>
+                        <div className="text-xs text-gray-400">
+                          {r.updatedAt ? new Date(r.updatedAt).toLocaleString() : ""}
+                        </div>
+                      </div>
+                    );
+                  })
+              }
             </div>
           </div>
         </div>
 
+        {/* Chat */}
         <div className="col-span-8">
-          <div className="box p-4 bg-white border rounded flex flex-col h-[500px]">
-            <h3 className="text-lg font-medium">Chat</h3>
-            <div id="chatBox" className="flex-1 overflow-y-auto p-4 bg-gray-50 rounded mt-2 min-h-0 overflow-x-hidden break-words">
-              {messages.map((m, idx) => (
-                <div key={idx} className={`max-w-[75%] mb-4 ${m.isMe?"ml-auto text-right":"mr-auto text-left"}`}>
-                  <div className="text-xs text-gray-500 mb-1">{m.displayRole}{m.senderId?" • "+m.senderId:""}{m.createdAt?" • "+new Date(m.createdAt).toLocaleString():""}</div>
-                  <div className={`inline-block p-3 rounded-lg ${m.isMe?"bg-blue-600 text-white rounded-br-sm":"bg-white border"} break-words whitespace-pre-wrap`}>{m.content}</div>
+          <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col h-[580px]">
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Chat</h3>
+              {activeRoom && (
+                <span className="text-xs text-gray-400 font-mono">{activeRoom.slice(0,16)}…</span>
+              )}
+            </div>
+
+            {/* Messages */}
+            <div ref={chatBoxRef} className="flex-1 overflow-y-auto p-4 bg-gray-50 min-h-0">
+              {messages.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-gray-400 text-sm gap-2">
+                  <span className="text-4xl">👈</span>
+                  <span>Chọn một room để bắt đầu</span>
+                </div>
+              ) : messages.map((m, idx) => (
+                <div key={idx} className={`flex flex-col mb-4 max-w-[72%] ${m.isMe ? "ml-auto items-end" : "mr-auto items-start"}`}>
+                  <div className="text-xs text-gray-400 font-mono mb-1 px-1">
+                    {m.senderRole === "ADMIN" ? "👨‍💼 Admin" : "🙋 User"}
+                    {m.senderId ? " · " + m.senderId.slice(0, 8) + "…" : ""}
+                    {m.createdAt ? " · " + new Date(m.createdAt).toLocaleTimeString() : ""}
+                  </div>
+                  <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words
+                    ${m.isMe
+                      ? "bg-blue-600 text-white rounded-br-sm"
+                      : "bg-white border border-gray-200 text-gray-800 rounded-bl-sm"
+                    }`}>
+                    {m.content}
+                  </div>
                 </div>
               ))}
             </div>
 
-            <div className="mt-3 flex gap-3">
-              <input value={content} onChange={(e)=>setContent(e.target.value)} className="flex-1 p-2 border rounded" placeholder="Nhập tin nhắn..." onKeyDown={(e)=>{ if (e.key==='Enter') { e.preventDefault(); sendMsg(); } }} />
-              <button className="px-4 py-2 bg-blue-600 text-white rounded" onClick={sendMsg}>Gửi</button>
+            {/* Input */}
+            <div className="px-4 py-3 border-t border-gray-100 flex gap-2">
+              <input
+                value={content}
+                onChange={e => setContent(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendMsg(); } }}
+                placeholder="Nhập tin nhắn... (Enter)"
+                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition"
+              />
+              <button
+                onClick={sendMsg}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition"
+              >Gửi →</button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="box mt-4 p-4 bg-white border rounded">
-        <h3 className="text-lg font-medium">Log</h3>
-        <pre className="mt-2 h-[140px] overflow-auto bg-black text-neutral-200 p-3 rounded whitespace-pre-wrap break-words">{logs}</pre>
+      {/* Log */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4 mt-4 shadow-sm">
+        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Log</h3>
+        <pre className="h-[120px] overflow-auto bg-gray-900 text-gray-300 p-3 rounded-lg text-xs whitespace-pre-wrap break-words font-mono">
+          {logs || "(trống)"}
+        </pre>
       </div>
 
     </div>
