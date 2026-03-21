@@ -78,6 +78,7 @@
   --color-gray-900: #101828;
   --color-gray-950: #0c111d;
   --color-gray-dark: #1a2231;
+  --color-dark-900: #101828;
 
   --color-orange-25: #fffaf5;
   --color-orange-50: #fff6ed;
@@ -867,5 +868,21 @@ span.flatpickr-weekday,
   }
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Keep native dropdowns readable in dark mode across forms/pages. */
+  .dark select {
+    background-color: var(--color-dark-900) !important;
+    color: rgb(255 255 255 / 0.9) !important;
+    border-color: var(--color-gray-700) !important;
+  }
+
+  .dark select option {
+    background-color: #ffffff;
+    color: #111827;
+  }
+
+  .dark select option:disabled {
+    color: #6b7280;
   }
 }

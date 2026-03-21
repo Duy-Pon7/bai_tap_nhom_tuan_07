@@ -100,7 +100,7 @@ if (!res.ok) {
  * Đăng xuất — chỉ đơn giản là xóa token khỏi localStorage/sessionStorage
  */
 export const logout = (): void => {
-  Cookies.remove("token");
+  Cookies.remove("token", { path: "/" });
   localStorage.removeItem("user");
 };
 
@@ -108,9 +108,18 @@ export const logout = (): void => {
  * Lưu token và thông tin user sau khi đăng nhập
  */
 export const saveAuthData = (token: string, user: User): void => {
-  // Lưu token vào cookie, hết hạn sau 7 ngày
-  Cookies.set("token", token, { expires: 7, secure: true, sameSite: 'strict' });
-  // Vẫn có thể lưu thông tin user vào localStorage để truy cập nhanh ở client
+  const isSecure =
+    typeof window !== "undefined"
+      ? window.location.protocol === "https:"
+      : process.env.NODE_ENV === "production";
+
+  Cookies.set("token", token, {
+    expires: 7,
+    secure: isSecure,
+    sameSite: "strict",
+    path: "/",
+  });
+
   localStorage.setItem("user", JSON.stringify(user));
 };
 
@@ -158,3 +167,4 @@ export const getUserInfoById = async (id: string): Promise<User> => {
 export const deleteUser = async (id: string): Promise<{ message: string }> => {
   return deleteUserById(id);
 };
+
