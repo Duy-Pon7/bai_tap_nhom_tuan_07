@@ -135,7 +135,9 @@ export const getCurrentUser = (): User | null => {
  * Lấy token hiện tại
  */
 export const getToken = (): string | null => {
-  return Cookies.get("token") || null;
+  const rawToken = Cookies.get("token");
+  if (!rawToken) return null;
+  return rawToken.replace(/^Bearer\s+/i, "").trim() || null;
 };
 
 /**

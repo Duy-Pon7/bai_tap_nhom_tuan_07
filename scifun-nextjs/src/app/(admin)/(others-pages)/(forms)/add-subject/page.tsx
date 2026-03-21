@@ -61,7 +61,7 @@ export default function CreateSubjectPage() {
       description: formData.description ? "" : "Mô tả là bắt buộc.",
       maxTopics:
         formData.maxTopics > 0 ? "" : "Số chủ đề tối đa phải lớn hơn 0.",
-      image: imageFile ? "" : "Ảnh minh họa là bắt buộc.",
+      image: "",
     };
 
     setErrors(newErrors);
@@ -80,7 +80,7 @@ export default function CreateSubjectPage() {
         name: formData.name,
         description: formData.description,
         maxTopics: Number(formData.maxTopics),
-        image: imageFile,
+        image: imageFile ?? undefined,
       };
 
       const created = await addSubject(payload);
@@ -92,9 +92,14 @@ export default function CreateSubjectPage() {
         setImageFile(null);
         setImagePreview(null);
       }, 500);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("[handleSubmit] Error creating subject:", error);
-      toast.error("Tạo môn học thất bại!");
+      const errorMessage =
+        error instanceof Error && error.message
+          ? error.message
+          : "Tao mon hoc that bai!";
+      setMessage(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -172,7 +177,7 @@ export default function CreateSubjectPage() {
         {/* Ảnh minh họa */}
         <div>
           <h3 className="text-lg font-semibold mb-2">
-            Ảnh minh họa <span className="text-red-500">*</span>
+            Ảnh minh họa (tùy chọn)
           </h3>
           {imagePreview && (
             <div className="mt-4 mb-4">
