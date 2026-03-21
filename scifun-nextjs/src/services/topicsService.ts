@@ -3,10 +3,19 @@
 import { getToken } from "./authService";
 import { Subject } from "./subjectService";
 
+export type TopicLevel = "Beginner" | "Intermediate" | "Advanced";
+
+export const TOPIC_LEVEL_OPTIONS: TopicLevel[] = [
+  "Beginner",
+  "Intermediate",
+  "Advanced",
+];
+
 export interface Topic {
   id?: string;
   name: string;
   description: string;
+  level?: TopicLevel;
   subject?: Subject | string | null; // Có thể là object Subject, string ID, hoặc null
 }
 export interface TopicAPIResponse {
@@ -36,6 +45,14 @@ const getAuthHeaders = (isFormData = false) => {
   }
   return headers;
 };
+
+const normalizeTopicLevel = (level: unknown): TopicLevel => {
+  if (level === "Beginner" || level === "Intermediate" || level === "Advanced") {
+    return level;
+  }
+  return "Beginner";
+};
+
 /**
  * Lấy danh sách topic (phân trang)
  * Endpoint: GET /api/v1/topic/get-topics?page=1&limit=10&searchName=...
@@ -78,7 +95,12 @@ export const getTopics = async (
       mappedSubject = { ...restOfSubject, id: subjectId };
     }
 
-    return { ...rest, id: _id, subject: mappedSubject };
+    return {
+      ...rest,
+      id: _id,
+      subject: mappedSubject,
+      level: normalizeTopicLevel(topic.level),
+    };
   });
 
   // Return the full response with mapped subjects
@@ -108,6 +130,7 @@ export const getTopicById = async (id: string): Promise<Topic> => {
     name: topicData.name,
     description: topicData.description,
     subject: topicData.subject || null,
+    level: normalizeTopicLevel(topicData.level),
   };
 };
 
@@ -123,6 +146,7 @@ export const addTopic = async (topic: {
   name: string;
   description: string;
   subject: string;
+  level: TopicLevel;
 }): Promise<Topic> => {
   const res = await fetch(`${BASE_URL}/create-topic`, {
     method: "POST",
@@ -143,7 +167,8 @@ export const addTopic = async (topic: {
     id: createdTopic._id,                  // ánh xạ từ _id
     name: createdTopic.name,
     description: createdTopic.description,
-    subject: createdTopic.subject ?? null, // có thể là null
+    subject: createdTopic.subject ?? null, // co the la null
+    level: normalizeTopicLevel(createdTopic.level),
   };
 };
 
@@ -174,6 +199,7 @@ export const updateTopic = async (
     name: updatedTopic.name,
     description: updatedTopic.description,
     subject: updatedTopic.subject ?? null,
+    level: normalizeTopicLevel(updatedTopic.level),
   };
 };
 

@@ -189,6 +189,12 @@ export default function ListTopics() {
                 isHeader // Added Actions column for editing
                 className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
               >
+                Level
+              </TableCell>
+              <TableCell
+                isHeader // Added Actions column for editing
+                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+              >
                 Actions
               </TableCell>
             </TableRow>
@@ -248,6 +254,9 @@ export default function ListTopics() {
                   })()}
                 </TableCell>
                 <TableCell className="py-3 text-theme-sm">
+                  {topic.level || "Beginner"}
+                </TableCell>
+                <TableCell className="py-3 text-theme-sm">
                   <Link href={`/update-topic/${topic.id}`} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200">
                     Edit
                   </Link>
@@ -257,7 +266,7 @@ export default function ListTopics() {
               </TableRow>
             ))}
             {topics.length === 0 && !loading && (
-              <TableRow><TableCell colSpan={4} className="py-6 text-center text-gray-500 dark:text-gray-400">Không tìm thấy chủ đề nào.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="py-6 text-center text-gray-500 dark:text-gray-400">Không tìm thấy chủ đề nào.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

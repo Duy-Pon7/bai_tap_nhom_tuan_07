@@ -1,6 +1,9 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { getVideoLessons, VideoLesson, deleteVideoLesson } from "@/services/videosService";
+import { Topic } from "@/services/topicsService";
 import {
   Table,
   TableBody,
@@ -8,27 +11,15 @@ import {
   TableHeader,
   TableRow,
 } from "../ui/table";
-import Link from "next/link";
-import { Topic } from "@/services/topicsService";
 
 export default function ListVideos() {
   const [videos, setVideos] = useState<VideoLesson[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [deletingVideoId, setDeletingVideoId] = useState<string | null>(null);
   const limit = 5;
-  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Debounce function
-  const debounce = (func: Function, wait: number) => {
-    let timeout: NodeJS.Timeout;
-    return (...args: any[]) => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func(...args), wait);
-    };
-  };
-
-  // Fetch videos
   const fetchVideos = async (page: number) => {
     setLoading(true);
     try {
@@ -46,18 +37,6 @@ export default function ListVideos() {
     fetchVideos(currentPage);
   }, [currentPage]);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key === "k") {
-        event.preventDefault();
-        inputRef.current?.focus();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
   const handlePrevPage = () => {
     setCurrentPage((prev) => Math.max(prev - 1, 1));
   };
@@ -67,33 +46,34 @@ export default function ListVideos() {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa video này không?")) {
+    if (deletingVideoId) return;
+
+    if (window.confirm("Ban co chac chan muon xoa video nay khong?")) {
+      setDeletingVideoId(id);
       try {
         await deleteVideoLesson(id);
-        // Refresh the list after deletion
-        fetchVideos(currentPage);
+        await fetchVideos(currentPage);
       } catch (error) {
         console.error("Failed to delete video:", error);
-        alert("Xóa video thất bại!");
+        alert("Xoa video that bai!");
+      } finally {
+        setDeletingVideoId(null);
       }
     }
   };
 
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 pb-3 pt-4 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6">
-      <div className="flex flex-col gap-2 mb-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-            Danh sách Video
-          </h3>
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Danh sach Video</h3>
         </div>
       </div>
 
-      {/* Loading state */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-10">
           <svg
-            className="animate-spin h-6 w-6 text-blue-500 mb-3"
+            className="mb-3 h-6 w-6 animate-spin text-blue-500"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
@@ -105,34 +85,34 @@ export default function ListVideos() {
               r="10"
               stroke="currentColor"
               strokeWidth="4"
-            ></circle>
+            />
             <path
               className="opacity-75"
               fill="currentColor"
               d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-            ></path>
+            />
           </svg>
-          <p className="text-gray-600 dark:text-gray-400">Đang tải dữ liệu...</p>
+          <p className="text-gray-600 dark:text-gray-400">Dang tai du lieu...</p>
         </div>
       ) : (
         <div className="max-w-full overflow-x-auto">
           <Table>
-            <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
+            <TableHeader className="border-y border-gray-100 dark:border-gray-800">
               <TableRow>
-                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                  Tiêu đề
+                <TableCell isHeader className="py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400">
+                  Tieu de
                 </TableCell>
-                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                  Thời lượng
+                <TableCell isHeader className="py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400">
+                  Thoi luong
                 </TableCell>
-                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                  Chủ đề
+                <TableCell isHeader className="py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400">
+                  Chu de
                 </TableCell>
-                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                <TableCell isHeader className="py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400">
                   URL
                 </TableCell>
-                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                  Hành động
+                <TableCell isHeader className="py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400">
+                  Hanh dong
                 </TableCell>
               </TableRow>
             </TableHeader>
@@ -144,20 +124,18 @@ export default function ListVideos() {
                     <TableCell className="py-3">
                       <div className="flex items-center gap-3">
                         <div>
-                          <p className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                          <p className="text-theme-sm font-medium text-gray-800 dark:text-white/90">
                             {video.title}
                           </p>
-                          <span className="text-gray-500 text-theme-xs dark:text-gray-400">
-                            ID: {video.id}
-                          </span>
+                          <span className="text-theme-xs text-gray-500 dark:text-gray-400">ID: {video.id}</span>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                      {video.duration} giây
+                    <TableCell className="py-3 text-theme-sm text-gray-500 dark:text-gray-400">
+                      {video.duration} giay
                     </TableCell>
-                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                      {video.topic && typeof video.topic === 'object'
+                    <TableCell className="py-3 text-theme-sm text-gray-500 dark:text-gray-400">
+                      {video.topic && typeof video.topic === "object"
                         ? (video.topic as Topic).name
                         : "N/A"}
                     </TableCell>
@@ -168,19 +146,25 @@ export default function ListVideos() {
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:underline dark:text-blue-400 dark:hover:underline"
                       >
-                        {/* To avoid long URLs breaking the layout, we can truncate them */}
                         <span className="truncate">{video.url}</span>
                       </a>
                     </TableCell>
                     <TableCell className="py-3 text-theme-sm">
-                      <Link href={`/update-video/${video.id}`} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200">
-                        Sửa
+                      <Link
+                        href={`/update-video/${video.id}`}
+                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200"
+                      >
+                        Sua
                       </Link>
+                      {deletingVideoId === video.id && (
+                        <span className="ml-4 text-gray-500 dark:text-gray-400">Dang xoa...</span>
+                      )}
                       <button
                         onClick={() => handleDelete(video.id)}
-                        className="ml-4 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200"
+                        disabled={deletingVideoId !== null}
+                        className="ml-4 text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400 dark:hover:text-red-200"
                       >
-                        Xóa
+                        Xoa
                       </button>
                     </TableCell>
                   </TableRow>
@@ -188,7 +172,7 @@ export default function ListVideos() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={5} className="py-6 text-center text-gray-500 dark:text-gray-400">
-                    Không tìm thấy video nào.
+                    Khong tim thay video nao.
                   </TableCell>
                 </TableRow>
               )}
@@ -197,24 +181,23 @@ export default function ListVideos() {
         </div>
       )}
 
-      {/* Pagination */}
       {!loading && (
-        <div className="flex items-center justify-end gap-4 mt-4">
+        <div className="mt-4 flex items-center justify-end gap-4">
           <span className="text-sm text-gray-500 dark:text-gray-400">
             Trang {currentPage} / {totalPages}
           </span>
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrevPage}
-              disabled={currentPage === 1}
-              className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
+              disabled={currentPage === 1 || deletingVideoId !== null}
+              className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             >
-              Trước
+              Truoc
             </button>
             <button
               onClick={handleNextPage}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
+              disabled={currentPage === totalPages || deletingVideoId !== null}
+              className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             >
               Sau
             </button>

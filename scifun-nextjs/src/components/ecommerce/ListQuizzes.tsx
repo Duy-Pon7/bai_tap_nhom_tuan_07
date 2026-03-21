@@ -8,7 +8,8 @@ import {
   TableCell,
   TableHeader,
   TableRow,
-} from "../ui/table";import Badge from "../ui/badge/Badge";
+} from "../ui/table";
+import Badge from "../ui/badge/Badge";
 import Link from "next/link";
 
 export default function ListQuizzes() {
@@ -75,6 +76,12 @@ export default function ListQuizzes() {
 
   const handleNextPage = () => {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+  };
+
+  const getTopicLabel = (quiz: Quiz): string => {
+    if (!quiz.topic) return "N/A";
+    if (typeof quiz.topic === "string") return quiz.topic;
+    return quiz.topic.name || "N/A";
   };
 
   const searchBar = (
@@ -195,6 +202,18 @@ export default function ListQuizzes() {
                 isHeader
                 className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
               >
+                Access
+              </TableCell>
+              <TableCell
+                isHeader
+                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+              >
+                Questions
+              </TableCell>
+              <TableCell
+                isHeader
+                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+              >
                 Unique Users
               </TableCell>
               <TableCell
@@ -253,7 +272,15 @@ export default function ListQuizzes() {
                   {quiz.id} {/* Display quiz ID */}
                 </TableCell>
                 <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  {typeof quiz.topic === 'string' ? quiz.topic : quiz.topic.name} {/* Display topic ID or name if populated */}
+                  {getTopicLabel(quiz)}
+                </TableCell>
+                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                  <Badge size="sm" color={quiz.accessTier === "PRO" ? "warning" : "success"}>
+                    {quiz.accessTier}
+                  </Badge>
+                </TableCell>
+                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                  {quiz.questionCount}
                 </TableCell>
                 <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                   {quiz.uniqueUserCount} {/* Display unique user count */}
@@ -264,7 +291,7 @@ export default function ListQuizzes() {
                     color={
                       quiz.favoriteCount > 0
                         ? "success"
-                        : "neutral"
+                        : "light"
                     }
                   >
                     {quiz.favoriteCount} {/* Display favorite count */}
@@ -292,7 +319,7 @@ export default function ListQuizzes() {
             ))}
             {quizzes.length === 0 && !loading && (
               <TableRow>
-                <TableCell colSpan={9} className="py-6 text-center text-gray-500 dark:text-gray-400">
+                <TableCell colSpan={11} className="py-6 text-center text-gray-500 dark:text-gray-400">
                   Không tìm thấy quiz nào.
                 </TableCell>
               </TableRow>

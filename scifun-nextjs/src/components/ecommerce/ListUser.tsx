@@ -18,6 +18,7 @@ export default function ListUsers() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const limit = 5;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -68,13 +69,17 @@ export default function ListUsers() {
   };
 
   const handleDeleteUser = async (userId: string) => {
+    if (deletingUserId) return;
     if (window.confirm("Bạn có chắc chắn muốn xóa người dùng này không?")) {
       try {
+        setDeletingUserId(userId);
         await deleteUserById(userId);
         // Refetch users to update the list
-        fetchUsers(currentPage, debouncedSearchTerm);
+        await fetchUsers(currentPage, debouncedSearchTerm);
       } catch (error) {
         console.error("Failed to delete user:", error);
+      } finally {
+        setDeletingUserId(null);
       }
     }
   };
@@ -215,9 +220,13 @@ export default function ListUsers() {
                       </Badge>
                     </TableCell>
                     <TableCell className="py-3 text-theme-sm">
+                      {deletingUserId === user.id && (
+                        <span className="text-gray-500 dark:text-gray-400">Đang xóa...</span>
+                      )}
                       <button
                         onClick={() => handleDeleteUser(user.id)}
-                        className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200"
+                        disabled={deletingUserId !== null}
+                        className="ml-2 text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400 dark:hover:text-red-200"
                       >
                         Xóa
                       </button>

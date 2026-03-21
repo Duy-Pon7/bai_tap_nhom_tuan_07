@@ -8,6 +8,7 @@ export interface Quiz {
   title: string;
   description?: string | null; // description can be null
   topic: string | Topic | null; // Can be just an ID, a populated Topic object, or null
+  questionCount: number;
   uniqueUserCount: number;
   duration: number; // Added duration field
   lastAttemptAt?: Date | string | null;
@@ -44,6 +45,24 @@ const getAuthHeaders = (isFormData = false) => {
   return headers;
 };
 
+const normalizeAccessTier = (accessTier: unknown): "PRO" | "FREE" => {
+  return accessTier === "PRO" ? "PRO" : "FREE";
+};
+
+const normalizeTopic = (topic: unknown): string | Topic | null => {
+  if (!topic) return null;
+  if (typeof topic === "string") return topic;
+  if (typeof topic === "object") {
+    const topicObject = topic as Record<string, unknown>;
+    const topicId = topicObject._id;
+    if (typeof topicId === "string") {
+      return { ...topicObject, id: topicId } as unknown as Topic;
+    }
+    return topicObject as unknown as Topic;
+  }
+  return null;
+};
+
 /**
  * Lấy danh sách quiz (phân trang, lọc, tìm kiếm)
  * Endpoint: GET /api/v1/quiz/get-quizzes?page=1&limit=10&topicId=...&search=...
@@ -71,14 +90,19 @@ export const getQuizzes = async (
 
   const json = await res.json();
   // Map _id from backend to id on frontend for each quiz
-  const mappedQuizzes = json.data.quizzes.map((quiz: any) => {
+  const quizzes = Array.isArray(json?.data?.quizzes) ? json.data.quizzes : [];
+  const mappedQuizzes = quizzes.map((quiz: any) => {
     const { _id, ...rest } = quiz;
     return {
       ...rest,
       id: _id,
-      accessTier: rest.accessTier ?? "FREE",
-      topic: rest.topic ?? null, // Ensure topic is null if not provided
+      accessTier: normalizeAccessTier(rest.accessTier),
+      topic: normalizeTopic(rest.topic),
       description: rest.description ?? null, // Ensure description is null if not provided
+      questionCount: Number(rest.questionCount ?? 0),
+      uniqueUserCount: Number(rest.uniqueUserCount ?? 0),
+      favoriteCount: Number(rest.favoriteCount ?? 0),
+      duration: Number(rest.duration ?? 0),
     };
   });
 
@@ -109,12 +133,13 @@ export const getQuizById = async (id: string): Promise<Quiz> => {
     id: quizData._id,
     title: quizData.title,
     description: quizData.description ?? null,
-    topic: quizData.topic ?? null, // Handle null topic
-    uniqueUserCount: quizData.uniqueUserCount,
-    duration: quizData.duration, // Map duration
+    topic: normalizeTopic(quizData.topic),
+    questionCount: Number(quizData.questionCount ?? 0),
+    uniqueUserCount: Number(quizData.uniqueUserCount ?? 0),
+    duration: Number(quizData.duration ?? 0),
     lastAttemptAt: quizData.lastAttemptAt,
-    accessTier: quizData.accessTier ?? "FREE",
-    favoriteCount: quizData.favoriteCount,
+    accessTier: normalizeAccessTier(quizData.accessTier),
+    favoriteCount: Number(quizData.favoriteCount ?? 0),
     createdAt: quizData.createdAt,
     updatedAt: quizData.updatedAt
   };
@@ -162,11 +187,12 @@ export const addQuiz = async (quiz: {
     title: createdQuiz.title,
     description: createdQuiz.description ?? null,
     topic: normalizedTopic,
-    uniqueUserCount: createdQuiz.uniqueUserCount,
-    duration: createdQuiz.duration, // Map duration
+    questionCount: Number(createdQuiz.questionCount ?? 0),
+    uniqueUserCount: Number(createdQuiz.uniqueUserCount ?? 0),
+    duration: Number(createdQuiz.duration ?? 0),
     lastAttemptAt: createdQuiz.lastAttemptAt ?? null, // Ensure null if not provided
-    accessTier: createdQuiz.accessTier ?? "FREE",
-    favoriteCount: createdQuiz.favoriteCount,
+    accessTier: normalizeAccessTier(createdQuiz.accessTier),
+    favoriteCount: Number(createdQuiz.favoriteCount ?? 0),
     createdAt: createdQuiz.createdAt,
     updatedAt: createdQuiz.updatedAt,
   };
@@ -198,12 +224,13 @@ export const updateQuiz = async (
     id: updatedQuiz._id,
     title: updatedQuiz.title,
     description: updatedQuiz.description ?? null,
-    topic: updatedQuiz.topic ?? null,
-    uniqueUserCount: updatedQuiz.uniqueUserCount,
-    duration: updatedQuiz.duration, // Map duration
+    topic: normalizeTopic(updatedQuiz.topic),
+    questionCount: Number(updatedQuiz.questionCount ?? 0),
+    uniqueUserCount: Number(updatedQuiz.uniqueUserCount ?? 0),
+    duration: Number(updatedQuiz.duration ?? 0),
     lastAttemptAt: updatedQuiz.lastAttemptAt,
-    accessTier: updatedQuiz.accessTier ?? "FREE",
-    favoriteCount: updatedQuiz.favoriteCount,
+    accessTier: normalizeAccessTier(updatedQuiz.accessTier),
+    favoriteCount: Number(updatedQuiz.favoriteCount ?? 0),
     createdAt: updatedQuiz.createdAt,
     updatedAt: updatedQuiz.updatedAt,
   };
@@ -235,12 +262,13 @@ export const deleteQuiz = async (
       id: deletedQuiz._id,
       title: deletedQuiz.title,
       description: deletedQuiz.description ?? null,
-      topic: deletedQuiz.topic ?? null,
-      uniqueUserCount: deletedQuiz.uniqueUserCount,
-      duration: deletedQuiz.duration, // Map duration
-      accessTier: deletedQuiz.accessTier ?? "FREE",
+      topic: normalizeTopic(deletedQuiz.topic),
+      questionCount: Number(deletedQuiz.questionCount ?? 0),
+      uniqueUserCount: Number(deletedQuiz.uniqueUserCount ?? 0),
+      duration: Number(deletedQuiz.duration ?? 0),
+      accessTier: normalizeAccessTier(deletedQuiz.accessTier),
       lastAttemptAt: deletedQuiz.lastAttemptAt ? new Date(deletedQuiz.lastAttemptAt) : null,
-      favoriteCount: deletedQuiz.favoriteCount,
+      favoriteCount: Number(deletedQuiz.favoriteCount ?? 0),
       createdAt: deletedQuiz.createdAt ? new Date(deletedQuiz.createdAt) : undefined,
       updatedAt: deletedQuiz.updatedAt ? new Date(deletedQuiz.updatedAt) : undefined,
     },
